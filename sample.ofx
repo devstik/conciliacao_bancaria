@@ -1,0 +1,44 @@
+OFXHEADER:100
+DATA:OFXSGML
+VERSION:102
+SECURITY:NONE
+ENCODING:USASCII
+CHARSET:1252
+COMPRESSION:NONE
+OLDFILEUID:NONE
+NEWFILEUID:NONE
+
+<OFX>
+  <BANKMSGSRSV1>
+    <STMTTRNRS>
+      <STMTRS>
+        <BANKTRANLIST>
+          <STMTTRN>
+            <TRNTYPE>DEBIT
+            <DTPOSTED>20260201120000
+            <TRNAMT>-89.90
+            <FITID>20260201-1
+            <NAME>Mercado Central
+            <MEMO>Compra de insumos
+          </STMTTRN>
+          <STMTTRN>
+            <TRNTYPE>CREDIT
+            <DTPOSTED>20260202103000
+            <TRNAMT>2500.00
+            <FITID>20260202-1
+            <NAME>Cliente Alpha
+            <MEMO>Recebimento mensalidade
+          </STMTTRN>
+          <STMTTRN>
+            <TRNTYPE>DEBIT
+            <DTPOSTED>20260203143000
+            <TRNAMT>-23.00
+            <FITID>20260203-1
+            <NAME>Tarifa bancaria
+            <MEMO>Pacote de servicos
+          </STMTTRN>
+        </BANKTRANLIST>
+      </STMTRS>
+    </STMTTRNRS>
+  </BANKMSGSRSV1>
+</OFX>

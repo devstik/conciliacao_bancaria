@@ -1,0 +1,14 @@
+{
+  "name": "financeiro-plataforma",
+  "version": "1.0.0",
+  "description": "Plataforma financeira com contas a receber/pagar e conciliacao bancaria via OFX",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "multer": "^2.0.2"
+  }
+}

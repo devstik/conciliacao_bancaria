@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plataforma Financeira</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="login-view" class="login-shell">
+      <form id="login-form" class="login-card">
+        <h1>Financeiro - Stik Elasticos</h1>
+
+        <label for="usuario">Usuário</label>
+        <input id="usuario" type="text" placeholder="usuario" required />
+
+        <label for="senha">Senha</label>
+        <input id="senha" type="password" placeholder="senha" required />
+
+        <button type="submit">Entrar</button>
+        <small id="login-message"></small>
+      </form>
+    </div>
+
+    <div id="app-view" class="app-shell hidden">
+      <aside class="sidebar">
+        <div>
+          <button id="sidebar-toggle" class="logo" type="button" aria-label="Alternar sidebar">FI</button>
+          <p class="menu-label">Main menu</p>
+          <nav class="menu" id="menu"></nav>
+        </div>
+        <div class="account-block">
+          <p class="menu-label">Conta</p>
+          <strong id="user-name">Administrador</strong>
+          <small>Financeiro</small>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <div>
+            <p class="breadcrumb">Financeiro / Home</p>
+            <h2 id="screen-title">Overview</h2>
+          </div>
+          <div class="top-actions">
+            <button class="ghost-btn" id="refresh-btn">Atualizar</button>
+            <button class="ghost-btn" id="logout-btn">Sair</button>
+          </div>
+        </header>
+
+        <section id="overview-screen" class="screen"></section>
+
+        <section id="receber-screen" class="screen hidden"></section>
+
+        <section id="pagar-screen" class="screen hidden"></section>
+
+        <section id="conciliacao-screen" class="screen hidden"></section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
