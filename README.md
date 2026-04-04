@@ -13,6 +13,9 @@ Plataforma web com:
 - Express
 - JavaScript puro no frontend (HTML/CSS/JS)
 
+## Configuração inicial
+Copie `.env.example` para `.env` e preencha as credenciais obrigatórias antes de subir a aplicação.
+
 ## Configuração TopManager
 Antes de rodar, configure as variáveis de ambiente para autenticação:
 
@@ -24,7 +27,7 @@ export TOPMANAGER_AUTH_URL='https://visions.topmanager.com.br/auth/api/usuarios/
 export TOPMANAGER_API_BASE='https://visions.topmanager.com.br/Servidor_2.8.0_api'
 ```
 
-A tela de login da plataforma é mockada (não usa TopManager diretamente).
+A tela de login da plataforma é local e independente do TopManager.
 Para consultar contas a receber/pagar, o backend usa credenciais técnicas do TopManager via variáveis de ambiente:
 
 ```bash
@@ -54,11 +57,10 @@ PORT=3005 npm run dev
 ```
 
 ## Login
-- Usuário: `jpsilva`
-- Senha: `871125`
+- Defina `APP_USERNAME` e `APP_PASSWORD` no ambiente.
 
 Observação:
-- O login da plataforma é local/mockado e não valida a API TopManager.
+- O login da plataforma é local e protege as rotas internas da API.
 - A consulta TopManager acontece ao abrir as telas `Contas a Receber` e `Contas a Pagar`.
 
 ## Endpoints usados
@@ -75,6 +77,21 @@ Exemplo de configuração:
 ```bash
 DB_POST_URL=https://seu-endpoint.com/api/transacoes npm run dev
 ```
+
+## Integração com NodeAPI
+Para a tela `Ficha de Cliente`, configure a conexão com sua API Node:
+
+```bash
+export NODE_API_BASE_URL='https://mediumpurple-loris-159660.hostingersite.com'
+export NODE_API_USERNAME='joao'
+export NODE_API_PASSWORD='SUA_SENHA_NODE_API'
+export NODE_API_APP_ID='StikVendas'
+```
+
+Observações:
+- Esses são os mesmos padrões usados no projeto `ForcaDeVendas`.
+- Se sua NodeAPI aceitar token fixo, você pode usar `NODE_API_TOKEN` no lugar de usuário/senha.
+- A tela consome internamente `GET /api/ficha-cliente`, que por sua vez consulta `GET /api/fichas-cadastro-clientes` na NodeAPI.
 
 ## OFX de teste
 Use o arquivo `sample.ofx` para testar o upload.

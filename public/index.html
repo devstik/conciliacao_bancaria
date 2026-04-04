@@ -12,7 +12,7 @@
   <body>
     <div id="login-view" class="login-shell">
       <form id="login-form" class="login-card">
-        <h1>Financeiro - Stik Elasticos</h1>
+        <h1>Login</h1>
 
         <label for="usuario">Usuário</label>
         <input id="usuario" type="text" placeholder="usuario" required />
@@ -28,16 +28,18 @@
     <div id="app-view" class="app-shell hidden">
       <aside class="sidebar">
         <div>
-          <button id="sidebar-toggle" class="logo" type="button" aria-label="Alternar sidebar">FI</button>
-          <p class="menu-label">Main menu</p>
+          <button id="sidebar-toggle" class="logo" type="button" aria-label="Alternar sidebar">Financeiro</button>
           <nav class="menu" id="menu"></nav>
         </div>
         <div class="account-block">
-          <p class="menu-label">Conta</p>
-          <strong id="user-name">Administrador</strong>
-          <small>Financeiro</small>
+          <div class="account-row">
+            <strong id="user-name">usuario</strong>
+            <button class="ghost-btn sidebar-btn danger" id="logout-btn">Logoff</button>
+          </div>
         </div>
       </aside>
+      <button class="ghost-btn mobile-menu-btn" id="mobile-menu-btn" type="button" aria-label="Abrir menu">&#9776;</button>
+      <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
 
       <main class="content">
         <header class="topbar">
@@ -46,18 +48,28 @@
             <h2 id="screen-title">Overview</h2>
           </div>
           <div class="top-actions">
-            <button class="ghost-btn" id="refresh-btn">Atualizar</button>
-            <button class="ghost-btn" id="logout-btn">Sair</button>
+            <button class="ghost-btn refresh-icon-btn" id="notifications-btn" title="Notificações" aria-label="Notificações">N</button>
+            <button class="ghost-btn refresh-icon-btn" id="refresh-btn" title="Atualizar" aria-label="Atualizar">&#x21bb;</button>
           </div>
         </header>
+
+        <section id="notifications-panel" class="notifications-panel hidden"></section>
 
         <section id="overview-screen" class="screen"></section>
 
         <section id="receber-screen" class="screen hidden"></section>
 
+        <section id="boletos-screen" class="screen hidden"></section>
+
         <section id="pagar-screen" class="screen hidden"></section>
 
         <section id="conciliacao-screen" class="screen hidden"></section>
+
+        <section id="ficha-cliente-screen" class="screen hidden"></section>
+
+        <section id="checkins-screen" class="screen hidden"></section>
+
+        <section id="dolar-analytics-screen" class="screen hidden"></section>
       </main>
     </div>
 

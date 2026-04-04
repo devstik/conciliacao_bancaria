@@ -1,5 +1,4 @@
-const DEFAULT_AUTH_URL =
-  "https://visions.topmanager.com.br/auth/api/usuarios/entrar?identificadorDaAplicacao=Financeiro&chaveDaAplicacaoExterna=oZ3k39BXUsWVAPIzTPkjsbrnpzg34RKNnIvCr2DguTQCtI9tc6zQRYYDmruTg1oO8kpEr1qxJI2wCb3zf9czvA%3D%3D&enderecoDeRetorno=http%3A%2F%2Fqualquer";
+const DEFAULT_AUTH_URL = "https://visions.topmanager.com.br/auth/api/usuarios/entrar";
 const DEFAULT_API_BASE = "https://visions.topmanager.com.br/Servidor_2.8.0_api";
 
 class TopManagerService {
@@ -11,10 +10,13 @@ class TopManagerService {
     this.apiBase = process.env.TOPMANAGER_API_BASE || DEFAULT_API_BASE;
 
     this.token = "";
+    this.authPromise = null;
+    this.maxAuthRetries = Number(process.env.TOPMANAGER_AUTH_RETRIES || 3);
+    this.authRetryBaseMs = Number(process.env.TOPMANAGER_AUTH_RETRY_BASE_MS || 400);
     this.currentCredentials = {
-      email: process.env.TOPMANAGER_EMAIL || "suporte.financeiro",
-      senha: process.env.TOPMANAGER_SENHA || "123456",
-      usuarioID: Number(process.env.TOPMANAGER_USUARIO_ID || "21960")
+      email: process.env.TOPMANAGER_EMAIL || "",
+      senha: process.env.TOPMANAGER_SENHA || "",
+      usuarioID: Number(process.env.TOPMANAGER_USUARIO_ID || "0")
     };
   }
 
@@ -52,34 +54,74 @@ class TopManagerService {
     return url;
   }
 
-  async authenticate() {
+  _sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  _isRetriableAuthFailure(status, body) {
+    if (status >= 500) return true;
+    const text = String(body || "").toLowerCase();
+    return text.includes("isolamento de instantaneo") || text.includes("snapshot");
+  }
+
+  async _authenticateWithRetry() {
     this._assertCredentials();
     const authUrl = this._buildAuthUrl();
-    console.log("[TopManager][AUTH] Endpoint:", authUrl.toString());
-    console.log("[TopManager][AUTH] Body:", JSON.stringify(this.currentCredentials));
+    console.log("[TopManager][AUTH] Iniciando autenticação no endpoint configurado.");
 
-    const response = await fetch(authUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(this.currentCredentials)
-    });
+    let lastError = null;
+    for (let attempt = 1; attempt <= this.maxAuthRetries; attempt += 1) {
+      const response = await fetch(authUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(this.currentCredentials)
+      });
 
-    const body = await response.text();
-    console.log("[TopManager][AUTH] Status:", response.status);
-    console.log("[TopManager][AUTH] Response:", body);
+      const body = await response.text();
+      console.log("[TopManager][AUTH] Status:", response.status);
 
-    if (!response.ok) {
-      throw new Error(`Falha no login TopManager (${response.status}): ${body}`);
+      if (response.ok) {
+        this.token = this._extractToken(body);
+        return this.token;
+      }
+
+      lastError = new Error(`Falha no login TopManager (${response.status}): ${body}`);
+      const retryable = this._isRetriableAuthFailure(response.status, body);
+      const isLastAttempt = attempt >= this.maxAuthRetries;
+      if (!retryable || isLastAttempt) {
+        throw lastError;
+      }
+
+      const backoffMs = this.authRetryBaseMs * attempt;
+      console.warn(`[TopManager][AUTH] tentativa ${attempt} falhou, retry em ${backoffMs}ms...`);
+      await this._sleep(backoffMs);
     }
 
-    this.token = this._extractToken(body);
-    console.log("[TopManager][AUTH] Token extraido:", this.token);
-    return this.token;
+    throw lastError || new Error("Falha desconhecida ao autenticar no TopManager.");
+  }
+
+  async authenticate() {
+    if (!this.authPromise) {
+      this.authPromise = this._authenticateWithRetry().finally(() => {
+        this.authPromise = null;
+      });
+    }
+    return this.authPromise;
   }
 
   async getToken({ forceRefresh = false } = {}) {
-    if (forceRefresh || !this.token) {
+    if (!(forceRefresh || !this.token)) {
+      return this.token;
+    }
+
+    try {
       await this.authenticate();
+    } catch (error) {
+      if (this.token) {
+        console.warn("[TopManager][AUTH] usando token em cache após falha de autenticação.");
+        return this.token;
+      }
+      throw error;
     }
 
     return this.token;
@@ -100,8 +142,7 @@ class TopManagerService {
   async get(pathname, query, { retryOnUnauthorized = true, forceRefresh = false } = {}) {
     const token = await this.getToken({ forceRefresh });
     const url = this._buildApiUrl(pathname, query);
-    console.log("[TopManager][GET] Endpoint:", url.toString());
-    console.log("[TopManager][GET] Token:", token);
+    console.log("[TopManager][GET] Consultando recurso remoto.");
 
     const response = await fetch(url, {
       method: "GET",
@@ -124,21 +165,11 @@ class TopManagerService {
 
     try {
       return {
-        payload: JSON.parse(rawBody),
-        debug: {
-          authEndpoint: this.authUrl,
-          endpoint: url.toString(),
-          token
-        }
+        payload: JSON.parse(rawBody)
       };
     } catch (_error) {
       return {
-        payload: rawBody,
-        debug: {
-          authEndpoint: this.authUrl,
-          endpoint: url.toString(),
-          token
-        }
+        payload: rawBody
       };
     }
   }
