@@ -4,10 +4,6 @@ const state = {
   user: null,
   receber: [],
   pagar: [],
-  overviewReceber: [],
-  overviewPagar: [],
-  overviewError: "",
-  overviewFilter: getCurrentWeekRange(),
   pagarError: "",
   receberError: "",
   fichaCliente: [],
@@ -73,22 +69,12 @@ const state = {
       vencidosOnly: false
     }
   },
-  overviewComparison: {
-    prevReceberTotal: 0,
-    prevPagarTotal: 0
-  },
-  activeScreen: "overview",
+  activeScreen: "receber",
   sidebarCollapsed: false,
   mobileSidebarOpen: false
 };
 
 const menuItems = [
-  {
-    id: "overview",
-    label: "Overview",
-    icon:
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h7V4H4v9zm9 7h7v-7h-7v7zM4 20h7v-5H4v5zm9-9h7V4h-7v7z"/></svg>'
-  },
   {
     id: "receber",
     label: "Contas a Receber",
@@ -167,7 +153,6 @@ function savePreferences() {
     receberFilter: state.receberFilter,
     pagarFilter: state.pagarFilter,
     fichaClienteFilter: state.fichaClienteFilter,
-    overviewFilter: state.overviewFilter,
     reconciliationForm: state.reconciliationForm,
     tablePrefs: state.tablePrefs
   };
@@ -183,7 +168,6 @@ function loadPreferences() {
     state.receberFilter = { ...state.receberFilter, ...(parsed.receberFilter || {}) };
     state.pagarFilter = { ...state.pagarFilter, ...(parsed.pagarFilter || {}) };
     state.fichaClienteFilter = { ...state.fichaClienteFilter, ...(parsed.fichaClienteFilter || {}) };
-    state.overviewFilter = parsed.overviewFilter || state.overviewFilter;
     state.reconciliationForm = { ...state.reconciliationForm, ...(parsed.reconciliationForm || {}) };
     if (parsed.tablePrefs) {
       state.tablePrefs = {
@@ -222,8 +206,6 @@ function resetSessionState() {
   state.user = null;
   state.receber = [];
   state.pagar = [];
-  state.overviewReceber = [];
-  state.overviewPagar = [];
   state.fichaCliente = [];
   state.ofxResult = null;
   state.ofxAccumulated = [];
@@ -268,23 +250,6 @@ function maybeRestoreSession() {
   }
 }
 
-function buildPreviousPeriodRange(filter) {
-  const normalized = normalizeOverviewFilter(filter);
-  const start = new Date(`${normalized.dataInicial}T00:00:00`);
-  const end = new Date(`${normalized.dataFinal}T00:00:00`);
-  const days = Math.max(Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1, 1);
-  const prevEnd = new Date(start);
-  prevEnd.setDate(prevEnd.getDate() - 1);
-  const prevStart = new Date(prevEnd);
-  prevStart.setDate(prevStart.getDate() - (days - 1));
-  return { dataInicial: toYmd(prevStart), dataFinal: toYmd(prevEnd) };
-}
-
-function formatChange(current, previous) {
-  if (previous === 0) return current === 0 ? "0%" : "n/a";
-  const diff = ((current - previous) / Math.abs(previous)) * 100;
-  return `${diff >= 0 ? "+" : ""}${diff.toFixed(1)}%`;
-}
 
 function computeNotifications() {
   const notifications = [];
@@ -295,8 +260,6 @@ function computeNotifications() {
   if (overduePagar > 0) notifications.push({ level: "bad", text: `${overduePagar} títulos a pagar vencidos.` });
   if (state.ofxResult?.totals?.review > 0) notifications.push({ level: "warn", text: `${state.ofxResult.totals.review} lançamentos OFX para revisar.` });
   if (state.ofxResult?.totals?.divergent > 0) notifications.push({ level: "bad", text: `${state.ofxResult.totals.divergent} lançamentos OFX divergentes.` });
-  const saldoPrevisto = state.overviewReceber.reduce((s, r) => s + r.valor, 0) - state.overviewPagar.reduce((s, r) => s + r.valor, 0);
-  if (saldoPrevisto < 0) notifications.push({ level: "bad", text: `Fluxo projetado negativo: ${currency.format(saldoPrevisto)}.` });
   state.notifications = notifications.slice(0, 8);
 }
 
@@ -367,16 +330,6 @@ function getCurrentWeekRange() {
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
   return { dataInicial: toYmd(weekStart), dataFinal: toYmd(weekEnd) };
-}
-
-function normalizeOverviewFilter(filter) {
-  const fallback = getCurrentWeekRange();
-  const initial = filter?.dataInicial || fallback.dataInicial;
-  const final = filter?.dataFinal || fallback.dataFinal;
-  if (initial > final) {
-    return { dataInicial: final, dataFinal: initial };
-  }
-  return { dataInicial: initial, dataFinal: final };
 }
 
 function getDefaultDateRange() {
@@ -508,7 +461,7 @@ function mapFichaClienteRow(row, index) {
 
 async function setActiveScreen(screen) {
   state.activeScreen = screen;
-  byId("screen-title").textContent = menuItems.find((item) => item.id === screen)?.label || "Overview";
+  byId("screen-title").textContent = menuItems.find((item) => item.id === screen)?.label || "";
 
   document.querySelectorAll(".screen").forEach((screenEl) => screenEl.classList.add("hidden"));
   byId(`${screen}-screen`).classList.remove("hidden");
@@ -540,10 +493,6 @@ async function setActiveScreen(screen) {
 
   if (screen === "boletos") {
     renderBoletos();
-  }
-
-  if (screen === "overview") {
-    await loadOverviewData(state.overviewFilter);
   }
 
   if (screen === "conciliacao") {
@@ -625,267 +574,6 @@ function toYmd(date) {
 function formatShortDateLabel(date) {
   return date.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
 }
-
-function buildWeeklyFlow(receberRows, pagarRows, rangeFilter = state.overviewFilter) {
-  const normalized = normalizeOverviewFilter(rangeFilter);
-  const start = new Date(`${normalized.dataInicial}T00:00:00`);
-  const end = new Date(`${normalized.dataFinal}T00:00:00`);
-
-  const days = [];
-  const dayMap = new Map();
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const current = new Date(d);
-    current.setHours(0, 0, 0, 0);
-    const key = toYmd(current);
-    const slot = { key, date: current, inflow: 0, outflow: 0, net: 0, cumulative: 0 };
-    dayMap.set(key, slot);
-    days.push(slot);
-  }
-
-  if (!days.length) {
-    const current = new Date();
-    current.setHours(0, 0, 0, 0);
-    const key = toYmd(current);
-    const slot = { key, date: current, inflow: 0, outflow: 0, net: 0, cumulative: 0 };
-    dayMap.set(key, slot);
-    days.push(slot);
-  }
-
-  for (const row of receberRows) {
-    const d = parseDateObject(row.vencimento);
-    if (!d) continue;
-    const key = toYmd(d);
-    if (!dayMap.has(key)) continue;
-    dayMap.get(key).inflow += Number(row.saldo || row.valor || 0);
-  }
-
-  for (const row of pagarRows) {
-    const d = parseDateObject(row.vencimento);
-    if (!d) continue;
-    const key = toYmd(d);
-    if (!dayMap.has(key)) continue;
-    dayMap.get(key).outflow += Math.abs(Number(row.saldo || row.valor || 0));
-  }
-
-  let cumulative = 0;
-  for (const slot of days) {
-    slot.net = slot.inflow - slot.outflow;
-    cumulative += slot.net;
-    slot.cumulative = cumulative;
-  }
-
-  return days;
-}
-
-function buildCumulativeLineSvg(weeklyFlow) {
-  const values = weeklyFlow.map((d) => d.cumulative);
-  const min = Math.min(...values, 0);
-  const max = Math.max(...values, 0);
-  const range = Math.max(max - min, 1);
-  const width = 640;
-  const height = 170;
-  const paddingX = 26;
-  const paddingY = 26;
-  const step = (width - paddingX * 2) / Math.max(weeklyFlow.length - 1, 1);
-
-  const points = weeklyFlow
-    .map((day, index) => {
-      const x = paddingX + index * step;
-      const y = height - paddingY - ((day.cumulative - min) / range) * (height - paddingY * 2);
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  const first = points.split(" ")[0] || `${paddingX},${height - paddingY}`;
-  const areaPoints = `${first} ${points} ${paddingX + (weeklyFlow.length - 1) * step},${height - paddingY} ${paddingX},${height - paddingY}`;
-  const baselineY = height - paddingY - ((0 - min) / range) * (height - paddingY * 2);
-
-  return `
-    <svg viewBox="0 0 ${width} ${height}" class="cumulative-svg" preserveAspectRatio="none">
-      <line x1="${paddingX}" y1="${baselineY}" x2="${width - paddingX}" y2="${baselineY}" class="cum-baseline"></line>
-      <polyline points="${areaPoints}" class="cum-area"></polyline>
-      <polyline points="${points}" class="cum-line"></polyline>
-      ${points
-        .split(" ")
-        .map((point) => {
-          const [x, y] = point.split(",");
-          return `<circle cx="${x}" cy="${y}" r="3.2" class="cum-dot"></circle>`;
-        })
-        .join("")}
-    </svg>
-  `;
-}
-
-function buildWeeklyTable(weeklyFlow) {
-  return `
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Dia</th>
-            <th>Entradas</th>
-            <th>Saídas</th>
-            <th>Fluxo Líquido</th>
-            <th>Saldo Acumulado</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${weeklyFlow
-            .map((day) => {
-              const netClass = day.net >= 0 ? "tag ok" : "tag bad";
-              return `
-                <tr>
-                  <td>${formatShortDateLabel(day.date)}</td>
-                  <td>${currency.format(day.inflow)}</td>
-                  <td>${currency.format(day.outflow)}</td>
-                  <td><span class="${netClass}">${currency.format(day.net)}</span></td>
-                  <td>${currency.format(day.cumulative)}</td>
-                </tr>
-              `;
-            })
-            .join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function renderOverview() {
-  const totalReceber = state.overviewReceber.reduce((sum, row) => sum + row.valor, 0);
-  const totalPagar = state.overviewPagar.reduce((sum, row) => sum + row.valor, 0);
-  const saldoPrevisto = totalReceber - totalPagar;
-  const overviewRange = normalizeOverviewFilter(state.overviewFilter);
-  const weeklyFlow = buildWeeklyFlow(state.overviewReceber, state.overviewPagar, overviewRange);
-  const netValues = weeklyFlow.map((d) => d.net);
-  const maxAbsNet = Math.max(...netValues.map((n) => Math.abs(n)), 1);
-  const bestDay = [...weeklyFlow].sort((a, b) => b.net - a.net)[0];
-  const worstDay = [...weeklyFlow].sort((a, b) => a.net - b.net)[0];
-  const cumulativeEnd = weeklyFlow[weeklyFlow.length - 1]?.cumulative || 0;
-  const prevSaldo = state.overviewComparison.prevReceberTotal - state.overviewComparison.prevPagarTotal;
-  const saldoDeltaLabel = formatChange(saldoPrevisto, prevSaldo);
-  const hasData = state.overviewReceber.length > 0 || state.overviewPagar.length > 0;
-  const riskAlerts = [
-    saldoPrevisto < 0 ? `Saldo projetado negativo (${currency.format(saldoPrevisto)}).` : "",
-    weeklyFlow.some((d) => d.net < 0) ? "Há dias com fluxo líquido negativo." : ""
-  ].filter(Boolean);
-  const overviewErrorBlock = state.overviewError ? `<p class="overview-error">${state.overviewError}</p>` : "";
-
-  byId("overview-screen").innerHTML = `
-    <div class="overview-head">
-      <div class="overview-meta">
-        <small>Período: ${overviewRange.dataInicial} até ${overviewRange.dataFinal}</small>
-      </div>
-      <div class="overview-date-filter">
-        <label for="overview-data-inicial">Inicial</label>
-        <input id="overview-data-inicial" type="date" class="upload-input" value="${overviewRange.dataInicial}" />
-        <label for="overview-data-final">Final</label>
-        <input id="overview-data-final" type="date" class="upload-input" value="${overviewRange.dataFinal}" />
-        <button id="overview-apply-btn" class="ghost-btn">Aplicar</button>
-      </div>
-    </div>
-    ${overviewErrorBlock}
-    <section class="kpi-grid">
-      <article class="kpi-card">
-        <small>Entradas Projetadas (Período)</small>
-        <strong>${currency.format(weeklyFlow.reduce((sum, d) => sum + d.inflow, 0))}</strong>
-        <p>${state.overviewReceber.length} títulos em receber</p>
-      </article>
-      <article class="kpi-card">
-        <small>Saídas Projetadas (Período)</small>
-        <strong>${currency.format(weeklyFlow.reduce((sum, d) => sum + d.outflow, 0))}</strong>
-        <p>${state.overviewPagar.length} títulos em pagar</p>
-      </article>
-      <article class="kpi-card">
-        <small>Saldo Acumulado no Período</small>
-        <strong>${currency.format(cumulativeEnd)}</strong>
-        <p>Baseado em vencimentos previstos</p>
-      </article>
-      <article class="kpi-card">
-        <small>Saldo Geral (Receber - Pagar)</small>
-        <strong>${currency.format(saldoPrevisto)}</strong>
-        <p>Receber ${currency.format(totalReceber)} vs Pagar ${currency.format(totalPagar)} | vs período anterior ${saldoDeltaLabel}</p>
-      </article>
-    </section>
-    <section class="table-wrap">
-      <h3>Alertas de Caixa</h3>
-      ${
-        riskAlerts.length
-          ? `<div class="notification-list">${riskAlerts.map((text) => `<p><span class="tag bad">Risco</span> ${escapeHtml(text)}</p>`).join("")}</div>`
-          : "<p>Sem alertas críticos para o período.</p>"
-      }
-    </section>
-
-    <section class="overview-analytics">
-      <article class="analytics-card">
-        <div class="analytics-head">
-          <h3>Fluxo de Caixa do Período</h3>
-          <p>Entradas e saídas previstas por dia</p>
-        </div>
-        ${hasData ? `
-          <div class="flow-bars">
-            ${weeklyFlow
-              .map((day) => {
-                const net = day.net;
-                const height = Math.max((Math.abs(net) / maxAbsNet) * 100, 6);
-                const barClass = net >= 0 ? "bar-positive" : "bar-negative";
-                return `
-                  <div class="flow-day">
-                    <div class="flow-track">
-                      <span class="flow-bar ${barClass}" style="height:${height}%"></span>
-                    </div>
-                    <small>${formatShortDateLabel(day.date)}</small>
-                  </div>
-                `;
-              })
-              .join("")}
-          </div>
-          <div class="cumulative-wrap">
-            <h4>Curva de Saldo Acumulado</h4>
-            ${buildCumulativeLineSvg(weeklyFlow)}
-          </div>
-        ` : `<p class="empty-analytics">Consulte Contas a Receber e Contas a Pagar para gerar o fluxo analítico.</p>`}
-      </article>
-      <article class="insight-card">
-        <h3>Insights do Período</h3>
-        <p><span class="tag ok">Melhor dia</span> ${bestDay ? `${formatShortDateLabel(bestDay.date)} (${currency.format(bestDay.net)})` : "-"}</p>
-        <p><span class="tag bad">Pior dia</span> ${worstDay ? `${formatShortDateLabel(worstDay.date)} (${currency.format(worstDay.net)})` : "-"}</p>
-        <p><span class="tag warn">A pagar</span> ${state.overviewPagar.length} títulos</p>
-        <p><span class="tag ok">A receber</span> ${state.overviewReceber.length} títulos</p>
-      </article>
-    </section>
-
-    <section class="table-wrap">
-      <h3>Tabela de Fluxo Diário</h3>
-      ${hasData ? buildWeeklyTable(weeklyFlow) : `<p class="empty-analytics">Sem dados suficientes para a tabela de fluxo.</p>`}
-    </section>
-    
-    <div class="panel-grid">
-      <article class="table-wrap">
-        <h3>Amostra de Recebimentos</h3>
-        ${buildTable(state.overviewReceber.slice(0, 12), "cliente")}
-      </article>
-      <article class="table-wrap">
-        <h3>Amostra de Pagamentos</h3>
-        ${buildTable(state.overviewPagar.slice(0, 12), "fornecedor")}
-      </article>
-    </div>
-  `;
-
-  byId("overview-data-inicial").addEventListener("change", (event) => {
-    state.overviewFilter.dataInicial = event.target.value;
-    savePreferences();
-  });
-  byId("overview-data-final").addEventListener("change", (event) => {
-    state.overviewFilter.dataFinal = event.target.value;
-    savePreferences();
-  });
-  byId("overview-apply-btn").addEventListener("click", () => {
-    loadOverviewData(state.overviewFilter).catch((error) => {
-      alert(error.message);
-    });
-  });
-}
-
 function buildTable(rows, ownerKey) {
   return `
     <div class="table-scroll">
@@ -2529,52 +2217,6 @@ async function reprocessJob(jobId) {
   }
 }
 
-async function loadDashboardData() {
-  renderOverview();
-}
-
-async function loadOverviewData(filter = state.overviewFilter) {
-  const normalizedFilter = normalizeOverviewFilter(filter);
-  const previousFilter = buildPreviousPeriodRange(normalizedFilter);
-  state.overviewFilter = normalizedFilter;
-  try {
-    const currentQuery = new URLSearchParams({
-      dataInicial: normalizedFilter.dataInicial,
-      dataFinal: normalizedFilter.dataFinal
-    }).toString();
-    const previousQuery = new URLSearchParams({
-      dataInicial: previousFilter.dataInicial,
-      dataFinal: previousFilter.dataFinal
-    }).toString();
-    const [receberResp, pagarResp, prevReceberResp, prevPagarResp] = await Promise.all([
-      fetchJson(`/api/receber?${currentQuery}`),
-      fetchJson(`/api/pagar?${currentQuery}`),
-      fetchJson(`/api/receber?${previousQuery}`),
-      fetchJson(`/api/pagar?${previousQuery}`)
-    ]);
-    state.overviewReceber = (receberResp.rows || []).map(mapReceberRow);
-    state.overviewPagar = (pagarResp.rows || []).map(mapPagarRow);
-    const prevReceber = (prevReceberResp.rows || []).map(mapReceberRow);
-    const prevPagar = (prevPagarResp.rows || []).map(mapPagarRow);
-    state.overviewComparison = {
-      prevReceberTotal: prevReceber.reduce((s, r) => s + r.valor, 0),
-      prevPagarTotal: prevPagar.reduce((s, r) => s + r.valor, 0)
-    };
-    state.overviewError = "";
-    savePreferences();
-  } catch (error) {
-    state.overviewError = error.message;
-    state.overviewReceber = [];
-    state.overviewPagar = [];
-    throw error;
-  } finally {
-    computeNotifications();
-    if (state.activeScreen === "overview") {
-      renderOverview();
-    }
-  }
-}
-
 async function loadReceberData(filter = state.receberFilter) {
   try {
     const query = new URLSearchParams({
@@ -2589,7 +2231,7 @@ async function loadReceberData(filter = state.receberFilter) {
     savePreferences();
     computeNotifications();
     renderReceber();
-    renderOverview();
+
   } catch (error) {
     state.receberError = error.message;
     state.receber = [];
@@ -2673,7 +2315,7 @@ async function loadPagarData(filter = state.pagarFilter) {
     savePreferences();
     computeNotifications();
     renderPagar();
-    renderOverview();
+
   } catch (error) {
     state.pagarError = error.message;
     state.pagar = [];
@@ -2693,15 +2335,11 @@ async function login(usuario, senha) {
   state.user = data.user;
   byId("user-name").textContent = data.user.usuario || data.user.nome || "usuario";
   loadPreferences();
-  state.overviewError = "";
-  state.overviewReceber = [];
-  state.overviewPagar = [];
   state.receberError = "";
   state.pagarError = "";
   state.receber = [];
   state.pagar = [];
   saveSession();
-  renderOverview();
   renderReceber();
   renderPagar();
   renderConciliacao();
@@ -2711,7 +2349,7 @@ async function login(usuario, senha) {
 
   byId("login-view").classList.add("hidden");
   byId("app-view").classList.remove("hidden");
-  await setActiveScreen("overview");
+  await setActiveScreen("receber");
 }
 
 function bindEvents() {
@@ -2785,7 +2423,7 @@ applySidebarState();
 if (maybeRestoreSession()) {
   byId("login-view").classList.add("hidden");
   byId("app-view").classList.remove("hidden");
-  void Promise.all([loadReconciliationJobs(), loadAccumulatedOfx()]).then(() => setActiveScreen("overview"));
+  void Promise.all([loadReconciliationJobs(), loadAccumulatedOfx()]).then(() => setActiveScreen("receber"));
 } else {
-  void setActiveScreen("overview");
+  void setActiveScreen("receber");
 }
