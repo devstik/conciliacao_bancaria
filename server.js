@@ -2,7 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const { randomUUID } = require("crypto");
+const { randomUUID, createHash } = require("crypto");
 const { parseOfxTransactions } = require("./services/ofxParser");
 const {
   insertTransactions,
@@ -562,6 +562,25 @@ function getIdentityKey(req, usuario) {
 
 function getConfiguredAppCredentials() {
   return APP_USERNAME && APP_PASSWORD ? { usuario: APP_USERNAME, senha: APP_PASSWORD } : null;
+}
+
+const USERS_FILE = path.join(__dirname, "users.json");
+
+function loadLocalUsers() {
+  try {
+    return JSON.parse(fs.readFileSync(USERS_FILE, "utf8")) || [];
+  } catch {
+    return [];
+  }
+}
+
+function hashPassword(password) {
+  return createHash("sha256").update(String(password)).digest("hex");
+}
+
+function findLocalUser(username, password) {
+  const h = hashPassword(password);
+  return loadLocalUsers().find((u) => u.username === username && u.passwordHash === h) || null;
 }
 
 function getBearerToken(req) {
@@ -1184,12 +1203,6 @@ async function settleConciliationTransaction(tx, config) {
 
 app.post("/api/auth/login", (req, res) => {
   const { usuario, senha } = req.body || {};
-  const configuredCredentials = getConfiguredAppCredentials();
-  if (!configuredCredentials) {
-    return res.status(503).json({
-      message: "Login da plataforma não configurado. Defina APP_USERNAME e APP_PASSWORD."
-    });
-  }
   const identityKey = getIdentityKey(req, usuario);
   const lock = isLoginLocked(identityKey);
   if (lock.locked) {
@@ -1198,28 +1211,33 @@ app.post("/api/auth/login", (req, res) => {
     });
   }
 
-  if (usuario === configuredCredentials.usuario && senha === configuredCredentials.senha) {
+  // 1. Checar credenciais do env (usuário raiz)
+  const envCreds = getConfiguredAppCredentials();
+  if (envCreds && usuario === envCreds.usuario && senha === envCreds.senha) {
     clearLoginAttempts(identityKey);
     cleanupSessions();
     const session = createSession(usuario);
-    appendAuditLog({
-      actor: usuario,
-      action: "auth.login.success",
-      details: { ip: req.ip, expiresAt: session.expiresAt }
-    });
-    return res.json({
-      tokenPreview: session.token,
-      expiresAt: session.expiresAt,
-      user: { nome: "Joao P Silva", usuario }
-    });
+    appendAuditLog({ actor: usuario, action: "auth.login.success", details: { ip: req.ip, expiresAt: session.expiresAt } });
+    return res.json({ tokenPreview: session.token, expiresAt: session.expiresAt, user: { nome: "Joao P Silva", usuario } });
+  }
+
+  // 2. Checar users.json
+  const localUser = findLocalUser(usuario, senha);
+  if (localUser) {
+    clearLoginAttempts(identityKey);
+    cleanupSessions();
+    const session = createSession(usuario);
+    appendAuditLog({ actor: usuario, action: "auth.login.success", details: { ip: req.ip, expiresAt: session.expiresAt } });
+    return res.json({ tokenPreview: session.token, expiresAt: session.expiresAt, user: { nome: localUser.nome || usuario, usuario } });
+  }
+
+  // 3. Sem nenhuma credencial configurada
+  if (!envCreds && loadLocalUsers().length === 0) {
+    return res.status(503).json({ message: "Login da plataforma não configurado." });
   }
 
   const fail = registerFailedLogin(identityKey);
-  appendAuditLog({
-    actor: usuario || "anon",
-    action: "auth.login.failed",
-    details: { ip: req.ip, attempts: fail.count }
-  });
+  appendAuditLog({ actor: usuario || "anon", action: "auth.login.failed", details: { ip: req.ip, attempts: fail.count } });
   return res.status(401).json({ message: "Usuário ou senha inválidos." });
 });
 
