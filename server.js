@@ -85,7 +85,23 @@ function loadLocalEnv() {
 
 app.disable("x-powered-by");
 app.use(express.json({ limit: "2mb" }));
-app.use(express.static(path.join(__dirname, "public")));
+
+const BUILD_VERSION = Date.now();
+const HTML_PATH = path.join(__dirname, "public", "index.html");
+
+app.get("/", (_req, res) => {
+  let html = fs.readFileSync(HTML_PATH, "utf8");
+  html = html
+    .replace('href="styles.css"', `href="styles.css?v=${BUILD_VERSION}"`)
+    .replace('src="app.js"', `src="app.js?v=${BUILD_VERSION}"`);
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(html);
+});
+
+app.use(express.static(path.join(__dirname, "public"), { etag: false, maxAge: 0 }));
 app.use((req, res, next) => {
   const start = Date.now();
   metrics.totalRequests += 1;
