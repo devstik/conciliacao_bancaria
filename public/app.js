@@ -1566,8 +1566,10 @@ function buildFichaScrollView(rows) {
             : "background:#0145F2;border-color:#0145F2;color:#ffffff;";
           const contact = [row.contatoNome, row.contatoTelefone].filter(Boolean).join(" / ") || "-";
           const sub = [row.vendedor, row.tipo, parseDate(row.data)].filter(Boolean).join(" · ");
+          // eslint-disable-next-line eqeqeq
+          const isSelected = state.fichaClienteSelected != null && String(state.fichaClienteSelected.id) === String(row.id);
           return `
-          <div class="fc-acc-item" data-id="${row.id}">
+          <div class="fc-acc-item${isSelected ? " open" : ""}" data-id="${row.id}">
             <div class="fc-acc-head">
               <div class="fc-acc-info">
                 <span class="fc-acc-name">${escapeHtml(row.razaoSocial || row.nomeFantasia || "-")}</span>
@@ -1590,7 +1592,9 @@ function buildFichaScrollView(rows) {
                 <div class="fc-acc-field"><small>E-mail</small><strong>${escapeHtml(row.emailCliente || "-")}</strong></div>
                 <div class="fc-acc-field"><small>Anexos</small><strong>${row.arquivosAnexados.length}</strong></div>
               </div>
-              <button class="ghost-btn ficha-open-btn" data-id="${row.id}" style="border-radius:12px;padding:8px 18px;font-weight:800;${actionStyle}">${isFinal ? "Ver resultado" : "Analisar"}</button>
+              ${isSelected
+                ? buildFichaClienteDetailPanel(state.fichaClienteSelected)
+                : `<button class="ghost-btn ficha-open-btn" data-id="${row.id}" style="border-radius:12px;padding:8px 18px;font-weight:800;${actionStyle}">${isFinal ? "Ver resultado" : "Analisar"}</button>`}
             </div>
           </div>`;
         })
@@ -1929,7 +1933,6 @@ function renderFichaCliente() {
           : `<p style="margin:0 0 14px;font-size:13px;color:var(--text-soft);"><strong style="color:var(--text-strong);">${state.fichaCliente.length}</strong> ficha(s) encontrada(s).</p>
              ${buildFichaClienteTable(state.fichaCliente)}`
       }
-      ${buildFichaClienteDetailPanel(state.fichaClienteSelected)}
     </article>
   `;
 
@@ -1945,7 +1948,14 @@ function renderFichaCliente() {
     accordion.addEventListener("click", (e) => {
       const head = e.target.closest(".fc-acc-head");
       if (!head) return;
-      head.closest(".fc-acc-item").classList.toggle("open");
+      const item = head.closest(".fc-acc-item");
+      const isOpen = item.classList.contains("open");
+      if (isOpen && state.fichaClienteSelected && String(item.dataset.id) === String(state.fichaClienteSelected.id)) {
+        state.fichaClienteSelected = null;
+        renderFichaCliente();
+        return;
+      }
+      item.classList.toggle("open");
     });
   }
 
