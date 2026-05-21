@@ -22,15 +22,6 @@ const state = {
     vendedorId: "",
     limit: "50"
   },
-  checkins: [],
-  checkinsError: "",
-  checkinsSelected: null,
-  checkinsFilter: {
-    dataInicial: "",
-    dataFinal: "",
-    vendedorId: "",
-    clienteId: ""
-  },
   receberFilter: getDefaultReceberFilter(),
   pagarFilter: getDefaultDateRange(),
   conciliationBankFilter: "ALL",
@@ -84,14 +75,6 @@ const state = {
     prevReceberTotal: 0,
     prevPagarTotal: 0
   },
-  dollarAnalytics: null,
-  dollarAnalyticsError: "",
-  dollarFilter: (() => {
-    const end = getTodayYmd();
-    const startDate = new Date(`${end}T00:00:00`);
-    startDate.setDate(startDate.getDate() - 30);
-    return { dataInicial: toYmd(startDate), dataFinal: end };
-  })(),
   activeScreen: "overview",
   sidebarCollapsed: false,
   mobileSidebarOpen: false
@@ -134,18 +117,6 @@ const menuItems = [
     icon:
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4V5zm2 2v10h12V7H6zm2 1h5v2H8V8zm0 3h8v2H8v-2zm0 3h8v2H8v-2z"/></svg>'
   },
-  {
-    id: "checkins",
-    label: "Check-ins",
-    icon:
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h2v2h6V3h2v2h3v16H4V5h3V3zm11 6H6v10h12V9zm-7 2h2v3h3v2h-5v-5z"/></svg>'
-  },
-  {
-    id: "dolar-analytics",
-    label: "Analytics Dólar",
-    icon:
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16v2H4v-2zm1-2 3-4 3 2 4-6 4 5-1.6 1.2-2.4-3-3.7 5.5-3.1-2.1L6.6 17 5 16z"/></svg>'
-  }
 ];
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -194,9 +165,7 @@ function savePreferences() {
     receberFilter: state.receberFilter,
     pagarFilter: state.pagarFilter,
     fichaClienteFilter: state.fichaClienteFilter,
-    checkinsFilter: state.checkinsFilter,
     overviewFilter: state.overviewFilter,
-    dollarFilter: state.dollarFilter,
     reconciliationForm: state.reconciliationForm,
     tablePrefs: state.tablePrefs
   };
@@ -212,9 +181,7 @@ function loadPreferences() {
     state.receberFilter = { ...state.receberFilter, ...(parsed.receberFilter || {}) };
     state.pagarFilter = { ...state.pagarFilter, ...(parsed.pagarFilter || {}) };
     state.fichaClienteFilter = { ...state.fichaClienteFilter, ...(parsed.fichaClienteFilter || {}) };
-    state.checkinsFilter = { ...state.checkinsFilter, ...(parsed.checkinsFilter || {}) };
     state.overviewFilter = parsed.overviewFilter || state.overviewFilter;
-    state.dollarFilter = parsed.dollarFilter || state.dollarFilter;
     state.reconciliationForm = { ...state.reconciliationForm, ...(parsed.reconciliationForm || {}) };
     if (parsed.tablePrefs) {
       state.tablePrefs = {
@@ -256,7 +223,6 @@ function resetSessionState() {
   state.overviewReceber = [];
   state.overviewPagar = [];
   state.fichaCliente = [];
-  state.checkins = [];
   state.ofxResult = null;
   state.ofxAccumulated = [];
   state.reconciliationJobs = [];
@@ -542,18 +508,6 @@ function mapFichaClienteRow(row, index) {
   };
 }
 
-function mapCheckinRow(row, index) {
-  return {
-    id: pick(row, ["id"], index + 1),
-    vendedorId: pick(row, ["vendedorId"], ""),
-    clienteId: pick(row, ["clienteId"], ""),
-    dataVisita: pick(row, ["dataVisita"], ""),
-    negociado: pick(row, ["negociado"], ""),
-    criadoEm: pick(row, ["criadoEm"], ""),
-    amostras: Array.isArray(row?.amostras) ? row.amostras : []
-  };
-}
-
 async function setActiveScreen(screen) {
   state.activeScreen = screen;
   byId("screen-title").textContent = menuItems.find((item) => item.id === screen)?.label || "Overview";
@@ -574,12 +528,6 @@ async function setActiveScreen(screen) {
     }
     if (screen === "ficha-cliente") {
       renderFichaCliente();
-    }
-    if (screen === "checkins") {
-      renderCheckins();
-    }
-    if (screen === "dolar-analytics") {
-      renderDollarAnalytics();
     }
     return;
   }
@@ -611,13 +559,6 @@ async function setActiveScreen(screen) {
     await loadFichaClienteData(state.fichaClienteFilter);
   }
 
-  if (screen === "checkins") {
-    await loadCheckinsData(state.checkinsFilter);
-  }
-
-  if (screen === "dolar-analytics") {
-    await loadDollarAnalytics(state.dollarFilter);
-  }
 }
 
 function mountMenu() {
@@ -809,157 +750,6 @@ function buildWeeklyTable(weeklyFlow) {
       </table>
     </div>
   `;
-}
-
-function buildDollarLineSvg(history, forecastDaily) {
-  const combined = [
-    ...history.map((h) => ({ xLabel: h.date.slice(5), value: Number(h.close || 0), type: "history" })),
-    ...forecastDaily.map((f, idx) => ({ xLabel: f.date.slice(5), value: Number(f.predictedClose || 0), type: idx === 0 ? "forecast-start" : "forecast" }))
-  ];
-  if (!combined.length) return "";
-  const width = 760;
-  const height = 220;
-  const paddingX = 24;
-  const paddingY = 24;
-  const values = combined.map((p) => p.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = Math.max(max - min, 0.0001);
-  const step = (width - paddingX * 2) / Math.max(combined.length - 1, 1);
-  const points = combined.map((p, i) => {
-    const x = paddingX + i * step;
-    const y = height - paddingY - ((p.value - min) / range) * (height - paddingY * 2);
-    return { ...p, x, y };
-  });
-  const historyCount = history.length;
-  const histPath = points
-    .slice(0, historyCount)
-    .map((p) => `${p.x},${p.y}`)
-    .join(" ");
-  const forecastPath = points
-    .slice(Math.max(historyCount - 1, 0))
-    .map((p) => `${p.x},${p.y}`)
-    .join(" ");
-
-  return `
-    <svg class="cumulative-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
-      <polyline points="${histPath}" class="cum-line"></polyline>
-      <polyline points="${forecastPath}" class="dollar-forecast-line"></polyline>
-      ${points
-        .filter((p, idx) => idx % Math.max(Math.floor(points.length / 10), 1) === 0 || idx === points.length - 1)
-        .map((p) => `<text x="${p.x}" y="${height - 6}" class="dollar-label">${escapeHtml(p.xLabel)}</text>`)
-        .join("")}
-      ${points.map((p) => `<circle cx="${p.x}" cy="${p.y}" r="2.4" class="${p.type === "history" ? "cum-dot" : "dollar-dot-forecast"}"></circle>`).join("")}
-    </svg>
-  `;
-}
-
-function renderDollarAnalytics() {
-  const error = state.dollarAnalyticsError ? `<p class="overview-error">${state.dollarAnalyticsError}</p>` : "";
-  const data = state.dollarAnalytics;
-  const history = data?.history || [];
-  const forecastPoints = data?.forecast?.points || [];
-  const forecastDaily = data?.forecast?.daily || [];
-  const stats = data?.stats || null;
-  const backtest = data?.forecast?.backtest || null;
-  const observed = data?.forecast?.observed || null;
-  const models = data?.forecast?.models || {};
-  const winnerModel = data?.forecast?.winnerModel || data?.forecast?.model || "-";
-  byId("dolar-analytics-screen").innerHTML = `
-    <article class="table-wrap">
-      <h3>Analytics Dólar (USD/BRL)</h3>
-      <div class="toolbar">
-        <label>Data inicial <input type="date" id="dollar-data-inicial" class="upload-input" value="${state.dollarFilter.dataInicial}" /></label>
-        <label>Data final <input type="date" id="dollar-data-final" class="upload-input" value="${state.dollarFilter.dataFinal}" /></label>
-        <button id="dollar-consultar-btn" class="primary-btn">Consultar</button>
-      </div>
-      ${error}
-      ${
-        stats
-          ? `
-        <section class="kpi-grid">
-          <article class="kpi-card"><small>Fechamento inicial</small><strong>R$ ${stats.firstClose.toFixed(4)}</strong></article>
-          <article class="kpi-card"><small>Fechamento final</small><strong>R$ ${stats.lastClose.toFixed(4)}</strong></article>
-          <article class="kpi-card"><small>Variação no período</small><strong>${stats.variationPercent >= 0 ? "+" : ""}${stats.variationPercent.toFixed(2)}%</strong></article>
-          <article class="kpi-card"><small>Acurácia da previsão (modelo vencedor)</small><strong>${backtest ? backtest.accuracyPercent.toFixed(2) : "0.00"}%</strong><p>MAPE ${backtest ? backtest.mapePercent.toFixed(2) : "0.00"}% | Modelo ${escapeHtml(String(winnerModel).toUpperCase())}</p></article>
-          <article class="kpi-card"><small>Acurácia observada (previsão x real)</small><strong>${observed?.accuracyPercent !== null && observed?.accuracyPercent !== undefined ? `${observed.accuracyPercent.toFixed(2)}%` : "-"}</strong><p>Amostras ${observed?.samples || 0}</p></article>
-        </section>
-        <section class="table-wrap">
-          <h3>Comparação de Modelos</h3>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>Modelo</th><th>Acurácia backtest</th><th>MAPE backtest</th><th>Acurácia observada</th><th>Amostras observadas</th></tr></thead>
-              <tbody>
-                <tr>
-                  <td>Linear</td>
-                  <td>${models.linear?.backtest ? `${Number(models.linear.backtest.accuracyPercent).toFixed(2)}%` : "-"}</td>
-                  <td>${models.linear?.backtest ? `${Number(models.linear.backtest.mapePercent).toFixed(2)}%` : "-"}</td>
-                  <td>${models.linear?.observed?.accuracyPercent !== null && models.linear?.observed?.accuracyPercent !== undefined ? `${Number(models.linear.observed.accuracyPercent).toFixed(2)}%` : "-"}</td>
-                  <td>${models.linear?.observed?.samples ?? 0}</td>
-                </tr>
-                <tr>
-                  <td>Holt</td>
-                  <td>${models.holt?.backtest ? `${Number(models.holt.backtest.accuracyPercent).toFixed(2)}%` : "-"}</td>
-                  <td>${models.holt?.backtest ? `${Number(models.holt.backtest.mapePercent).toFixed(2)}%` : "-"}</td>
-                  <td>${models.holt?.observed?.accuracyPercent !== null && models.holt?.observed?.accuracyPercent !== undefined ? `${Number(models.holt.observed.accuracyPercent).toFixed(2)}%` : "-"}</td>
-                  <td>${models.holt?.observed?.samples ?? 0}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-        <section class="table-wrap">
-          <h3>Evolução + previsão diária (15 dias)</h3>
-          ${buildDollarLineSvg(history, forecastDaily)}
-        </section>
-        <section class="table-wrap">
-          <h3>Previsão por horário (próximos 15 dias)</h3>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>Data</th><th>Horário</th><th>Valor previsto (USD/BRL)</th><th>Valor real (USD/BRL)</th><th>% acerto</th></tr></thead>
-              <tbody>
-                ${forecastPoints
-                  .map((p) => {
-                    const hasReal = p.realClose !== null && p.realClose !== undefined;
-                    const accuracyText = hasReal && p.accuracyPercent !== null ? `${Number(p.accuracyPercent).toFixed(2)}%` : "-";
-                    const tagClass =
-                      !hasReal || p.accuracyPercent === null
-                        ? "warn"
-                        : p.accuracyPercent >= 97
-                          ? "ok"
-                          : p.accuracyPercent >= 94
-                            ? "warn"
-                            : "bad";
-                    return `<tr>
-                      <td>${parseDate(p.date)}</td>
-                      <td>${p.hour}</td>
-                      <td>R$ ${Number(p.predicted).toFixed(4)}</td>
-                      <td>${hasReal ? `R$ ${Number(p.realClose).toFixed(4)}` : "-"}</td>
-                      <td><span class="tag ${tagClass}">${accuracyText}</span></td>
-                    </tr>`;
-                  })
-                  .join("")}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      `
-          : "<p>Sem dados carregados. Consulte o período desejado.</p>"
-      }
-    </article>
-  `;
-
-  byId("dollar-data-inicial").addEventListener("change", (event) => {
-    state.dollarFilter.dataInicial = event.target.value;
-    savePreferences();
-  });
-  byId("dollar-data-final").addEventListener("change", (event) => {
-    state.dollarFilter.dataFinal = event.target.value;
-    savePreferences();
-  });
-  byId("dollar-consultar-btn").addEventListener("click", () => {
-    loadDollarAnalytics(state.dollarFilter).catch((err) => alert(err.message));
-  });
 }
 
 function renderOverview() {
@@ -2430,154 +2220,6 @@ function renderFichaCliente() {
   }
 }
 
-function buildCheckinsTable(rows) {
-  if (!rows.length) {
-    return "<p>Nenhum check-in encontrado.</p>";
-  }
-
-  return `
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Data visita</th>
-            <th>Vendedor ID</th>
-            <th>Cliente ID</th>
-            <th>Negociado</th>
-            <th>Amostras</th>
-            <th>Ação</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows
-            .map(
-              (row) => `
-                <tr>
-                  <td>${row.id}</td>
-                  <td>${escapeHtml(parseDate(row.dataVisita) || "-")}</td>
-                  <td>${escapeHtml(row.vendedorId || "-")}</td>
-                  <td>${escapeHtml(row.clienteId || "-")}</td>
-                  <td>${escapeHtml((row.negociado || "-").slice(0, 90))}</td>
-                  <td>${row.amostras.length}</td>
-                  <td><button class="ghost-btn checkin-open-btn" data-id="${row.id}" style="border-radius:12px;padding:10px 14px;background:linear-gradient(135deg,#2f6dff,#2357d6);border-color:rgba(94,143,255,0.34);color:#edf4ff;font-weight:800;">Detalhar</button></td>
-                </tr>
-              `
-            )
-            .join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function buildCheckinDetailPanel(item) {
-  if (!item) return "";
-  return `
-    <article class="table-wrap" style="margin-top:16px;">
-      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px;">
-        <div>
-          <h3 style="margin:0;">Check-in #${item.id}</h3>
-          <p style="margin:6px 0 0 0;color:var(--text-soft);">Visita em ${escapeHtml(parseDate(item.dataVisita) || "-")} • Cliente ${escapeHtml(item.clienteId || "-")}</p>
-        </div>
-        <button id="checkin-close-detail" class="ghost-btn">Fechar</button>
-      </div>
-      ${buildFichaClienteDetailSection("Resumo da visita", [
-        { label: "Vendedor ID", value: item.vendedorId },
-        { label: "Cliente ID", value: item.clienteId },
-        { label: "Data da visita", value: parseDate(item.dataVisita) },
-        { label: "Criado em", value: item.criadoEm ? new Date(item.criadoEm).toLocaleString("pt-BR") : "-" }
-      ])}
-      <div style="margin-bottom:16px;">
-        <h4 style="margin:0 0 8px 0;">O que foi negociado</h4>
-        <div style="padding:16px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;white-space:pre-wrap;line-height:1.6;">${escapeHtml(item.negociado || "-")}</div>
-      </div>
-      <div>
-        <h4 style="margin:0 0 10px 0;">Amostras solicitadas</h4>
-        ${
-          item.amostras.length
-            ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-                ${item.amostras
-                  .map(
-                    (amostra) => `
-                      <div style="padding:14px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;">
-                        <small style="display:block;color:var(--text-soft);margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">Descrição</small>
-                        <div style="font-size:14px;font-weight:700;color:var(--text-strong);line-height:1.45;">${escapeHtml(amostra.descricao || "-")}</div>
-                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-                          <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:rgba(1,69,242,0.10);border:1px solid rgba(1,69,242,0.22);color:#0145F2;font-size:11px;font-weight:800;">${escapeHtml(amostra.status || "-")}</span>
-                          <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:#f1f5f9;border:1px solid #e2eaf0;color:var(--text-soft);font-size:11px;font-weight:700;">${escapeHtml(parseDate(amostra.dataEntrega) || "Sem data")}</span>
-                        </div>
-                      </div>
-                    `
-                  )
-                  .join("")}
-              </div>`
-            : "<p>Nenhuma amostra registrada.</p>"
-        }
-      </div>
-    </article>
-  `;
-}
-
-function renderCheckins() {
-  const filter = state.checkinsFilter;
-  const errorBlock = state.checkinsError ? `<p style="color:#dc2626;font-weight:600;">${state.checkinsError}</p>` : "";
-  byId("checkins-screen").innerHTML = `
-    <article class="table-wrap list-full-height">
-      <h3>Check-ins de Clientes</h3>
-      <div class="toolbar">
-        <label>Data inicial <input type="date" id="checkin-data-inicial" class="upload-input" value="${filter.dataInicial}" /></label>
-        <label>Data final <input type="date" id="checkin-data-final" class="upload-input" value="${filter.dataFinal}" /></label>
-        <input id="checkin-vendedor-id" class="upload-input" placeholder="Vendedor ID" value="${escapeHtml(filter.vendedorId)}" />
-        <input id="checkin-cliente-id" class="upload-input" placeholder="Cliente ID" value="${escapeHtml(filter.clienteId)}" />
-        <button id="checkin-consultar-btn" class="primary-btn">Consultar</button>
-      </div>
-      ${errorBlock}
-      <p><strong>${state.checkins.length}</strong> check-in(s) encontrado(s).</p>
-      ${buildCheckinsTable(state.checkins)}
-      ${buildCheckinDetailPanel(state.checkinsSelected)}
-    </article>
-  `;
-
-  byId("checkin-data-inicial").addEventListener("change", (event) => {
-    state.checkinsFilter.dataInicial = event.target.value;
-    savePreferences();
-  });
-  byId("checkin-data-final").addEventListener("change", (event) => {
-    state.checkinsFilter.dataFinal = event.target.value;
-    savePreferences();
-  });
-  byId("checkin-vendedor-id").addEventListener("input", (event) => {
-    state.checkinsFilter.vendedorId = event.target.value;
-    savePreferences();
-  });
-  byId("checkin-cliente-id").addEventListener("input", (event) => {
-    state.checkinsFilter.clienteId = event.target.value;
-    savePreferences();
-  });
-  byId("checkin-consultar-btn").addEventListener("click", () => {
-    loadCheckinsData(state.checkinsFilter).catch((error) => {
-      alert(error.message);
-    });
-  });
-  document.querySelectorAll(".checkin-open-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      const id = button.getAttribute("data-id");
-      if (!id) return;
-      const current = state.checkins.find((item) => String(item.id) === String(id)) || null;
-      state.checkinsSelected = current;
-      renderCheckins();
-    });
-  });
-  const closeDetail = byId("checkin-close-detail");
-  if (closeDetail) {
-    closeDetail.addEventListener("click", () => {
-      state.checkinsSelected = null;
-      renderCheckins();
-    });
-  }
-}
-
 async function fetchJson(url, options = {}) {
   await ensureSessionFresh();
   const headers = {
@@ -2834,30 +2476,6 @@ async function loadOverviewData(filter = state.overviewFilter) {
   }
 }
 
-async function loadDollarAnalytics(filter = state.dollarFilter) {
-  const initial = filter?.dataInicial || state.dollarFilter.dataInicial;
-  const final = filter?.dataFinal || state.dollarFilter.dataFinal;
-  const normalized = initial <= final ? { dataInicial: initial, dataFinal: final } : { dataInicial: final, dataFinal: initial };
-  state.dollarFilter = normalized;
-  try {
-    const query = new URLSearchParams({
-      dataInicial: normalized.dataInicial,
-      dataFinal: normalized.dataFinal
-    }).toString();
-    state.dollarAnalytics = await fetchJson(`/api/analytics/dolar?${query}`);
-    state.dollarAnalyticsError = "";
-    savePreferences();
-  } catch (error) {
-    state.dollarAnalytics = null;
-    state.dollarAnalyticsError = error.message;
-    throw error;
-  } finally {
-    if (state.activeScreen === "dolar-analytics") {
-      renderDollarAnalytics();
-    }
-  }
-}
-
 async function loadReceberData(filter = state.receberFilter) {
   try {
     const query = new URLSearchParams({
@@ -2906,33 +2524,6 @@ async function loadFichaClienteData(filter = state.fichaClienteFilter) {
     state.fichaClienteError = error.message;
     state.fichaCliente = [];
     renderFichaCliente();
-    throw error;
-  }
-}
-
-async function loadCheckinsData(filter = state.checkinsFilter) {
-  try {
-    const query = new URLSearchParams({
-      dataInicial: filter.dataInicial,
-      dataFinal: filter.dataFinal,
-      vendedorId: filter.vendedorId,
-      clienteId: filter.clienteId
-    }).toString();
-    const response = await fetchJson(`/api/checkins?${query}`);
-    state.checkins = (response.rows || []).map(mapCheckinRow);
-    state.checkinsError = "";
-    if (state.checkinsSelected) {
-      const updatedSelection = state.checkins.find((item) => item.id === state.checkinsSelected.id);
-      if (updatedSelection) {
-        state.checkinsSelected = { ...state.checkinsSelected, ...updatedSelection };
-      }
-    }
-    savePreferences();
-    renderCheckins();
-  } catch (error) {
-    state.checkinsError = error.message;
-    state.checkins = [];
-    renderCheckins();
     throw error;
   }
 }
@@ -3010,8 +2601,6 @@ async function login(usuario, senha) {
   renderReceber();
   renderPagar();
   renderConciliacao();
-  renderCheckins();
-  renderDollarAnalytics();
   await loadReconciliationJobs();
   await loadAccumulatedOfx();
   computeNotifications();
@@ -3048,14 +2637,6 @@ function bindEvents() {
       }
       if (state.activeScreen === "overview") {
         await loadOverviewData(state.overviewFilter);
-        return;
-      }
-      if (state.activeScreen === "dolar-analytics") {
-        await loadDollarAnalytics(state.dollarFilter);
-        return;
-      }
-      if (state.activeScreen === "checkins") {
-        await loadCheckinsData(state.checkinsFilter);
         return;
       }
       if (state.activeScreen === "conciliacao") {
