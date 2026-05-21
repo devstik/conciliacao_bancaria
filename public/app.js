@@ -37,6 +37,21 @@ const state = {
   ofxResult: null,
   ofxAccumulated: [],
   selectedConciliationKeys: new Set(),
+  reconciliationCatalogs: {
+    fonteDeRecursos: [],
+    depositarios: [],
+    tiposDeOperacao: [],
+    meiosDePagamento: []
+  },
+  reconciliationCatalogError: "",
+  reconciliationForm: {
+    organizacaoId: "2",
+    depositarioId: "",
+    tipoOperacaoReceberId: "",
+    tipoOperacaoPagarId: "",
+    meioPagamentoId: "",
+    fonteDeRecursosId: ""
+  },
   reconciliationJobs: [],
   notifications: [],
   tablePrefs: {
@@ -182,6 +197,7 @@ function savePreferences() {
     checkinsFilter: state.checkinsFilter,
     overviewFilter: state.overviewFilter,
     dollarFilter: state.dollarFilter,
+    reconciliationForm: state.reconciliationForm,
     tablePrefs: state.tablePrefs
   };
   localStorage.setItem(getUserPrefKey(), JSON.stringify(payload));
@@ -199,6 +215,7 @@ function loadPreferences() {
     state.checkinsFilter = { ...state.checkinsFilter, ...(parsed.checkinsFilter || {}) };
     state.overviewFilter = parsed.overviewFilter || state.overviewFilter;
     state.dollarFilter = parsed.dollarFilter || state.dollarFilter;
+    state.reconciliationForm = { ...state.reconciliationForm, ...(parsed.reconciliationForm || {}) };
     if (parsed.tablePrefs) {
       state.tablePrefs = {
         ...state.tablePrefs,
@@ -243,6 +260,13 @@ function resetSessionState() {
   state.ofxResult = null;
   state.ofxAccumulated = [];
   state.reconciliationJobs = [];
+  state.reconciliationCatalogs = {
+    fonteDeRecursos: [],
+    depositarios: [],
+    tiposDeOperacao: [],
+    meiosDePagamento: []
+  };
+  state.reconciliationCatalogError = "";
   state.selectedConciliationKeys = new Set();
   state.conciliationBankFilter = "ALL";
   state.mobileSidebarOpen = false;
@@ -579,6 +603,7 @@ async function setActiveScreen(screen) {
   if (screen === "conciliacao") {
     await loadReconciliationJobs();
     await loadAccumulatedOfx();
+    await loadReconciliationCatalogs();
     renderConciliacao();
   }
 
@@ -1229,7 +1254,7 @@ function exportRows(tableType, rows, format) {
 function renderReceber() {
   const view = applyTableView(state.receber, "receber");
   const prefs = state.tablePrefs.receber;
-  const errorBlock = state.receberError ? `<p style="color:#a33434;font-weight:600;">${state.receberError}</p>` : "";
+  const errorBlock = state.receberError ? `<p style="color:#dc2626;font-weight:600;">${state.receberError}</p>` : "";
   const situacaoOptions = Object.entries(RECEBER_SITUACAO_LABELS)
     .map(([value, label]) => `<option value="${value}" ${String(state.receberFilter.situacao) === value ? "selected" : ""}>${label}</option>`)
     .join("");
@@ -1392,7 +1417,7 @@ function renderBoletos() {
 function renderPagar() {
   const view = applyTableView(state.pagar, "pagar");
   const prefs = state.tablePrefs.pagar;
-  const errorBlock = state.pagarError ? `<p style="color:#a33434;font-weight:600;">${state.pagarError}</p>` : "";
+  const errorBlock = state.pagarError ? `<p style="color:#dc2626;font-weight:600;">${state.pagarError}</p>` : "";
   byId("pagar-screen").innerHTML = `
     <article class="table-wrap list-full-height">
       <h3>Contas a Pagar</h3>
@@ -1537,8 +1562,30 @@ function getConciliationTxKey(tx) {
   return [tx.fitId || "", tx.postedAt || "", Number(tx.amount || 0).toFixed(2), tx.documentNumber || "", tx.name || ""].join("|");
 }
 
+function isConciliationSettled(tx) {
+  return tx?.settlement?.status === "success";
+}
+
+function getSelectableConciliationTransactions(transactions) {
+  return (transactions || []).filter((tx) => !isConciliationSettled(tx));
+}
+
+function getSelectedConciliationTransactions(transactions) {
+  return (transactions || []).filter((tx) => state.selectedConciliationKeys.has(getConciliationTxKey(tx)));
+}
+
+function buildCatalogOptions(options, selectedValue, placeholder) {
+  return [`<option value="">${placeholder}</option>`]
+    .concat(
+      (options || []).map(
+        (item) => `<option value="${item.id}" ${String(selectedValue) === String(item.id) ? "selected" : ""}>${escapeHtml(item.label)}</option>`
+      )
+    )
+    .join("");
+}
+
 function txCard(tx, options = {}) {
-  const { selectable = false, checked = false, key = "" } = options;
+  const { selectable = false, checked = false, disabled = false, key = "" } = options;
   const valueClass = tx.amount >= 0 ? "ok" : "warn";
   const amount = currency.format(Math.abs(tx.amount));
   const direction = tx.amount >= 0 ? "Crédito" : "Débito";
@@ -1558,9 +1605,20 @@ function txCard(tx, options = {}) {
       matchedBlock = `<p><strong>Match ${tx.matched.entityType.toUpperCase()}:</strong> ${tx.matched.titulo || "-"} | Doc ${tx.matched.numeroDocumento || "-"}</p>`;
     }
   }
+  let settlementBlock = "";
+  if (tx.settlement) {
+    const statusClass = tx.settlement.status === "success" ? "ok" : tx.settlement.status === "error" ? "bad" : "warn";
+    const statusLabel = tx.settlement.status === "success" ? "Baixado" : tx.settlement.status === "error" ? "Erro na baixa" : "Pendente";
+    const processedAt = tx.settlement.processedAt ? new Date(tx.settlement.processedAt).toLocaleString("pt-BR") : "";
+    settlementBlock = `
+      <p><strong>Status:</strong> <span class="tag ${statusClass}">${statusLabel}</span></p>
+      ${tx.settlement.message ? `<p>${escapeHtml(tx.settlement.message)}</p>` : ""}
+      ${processedAt ? `<p><strong>Processado em:</strong> ${processedAt}</p>` : ""}
+    `;
+  }
   const reasonBlock = tx.reason ? `<p><strong>Motivo:</strong> ${tx.reason}</p>` : "";
   const selectBlock = selectable
-    ? `<label class="tx-select"><input type="checkbox" class="conc-item-check" data-key="${escapeHtml(key)}" ${checked ? "checked" : ""} /> Selecionar</label>`
+    ? `<label class="tx-select"><input type="checkbox" class="conc-item-check" data-key="${escapeHtml(key)}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""} /> Selecionar para baixa</label>`
     : "";
   return `
     <article class="tx">
@@ -1569,6 +1627,7 @@ function txCard(tx, options = {}) {
       <strong>${tx.name || "Sem descrição"}${nameHasAmount ? "" : ` - ${amount}`}</strong>
       <p>${tx.memo || "Sem memo"}</p>
       ${matchedBlock}
+      ${settlementBlock}
       ${reasonBlock}
       <p>${tx.postedAt ? new Date(tx.postedAt).toLocaleDateString("pt-BR") : "Data não encontrada"}</p>
     </article>
@@ -1663,19 +1722,25 @@ function renderConciliacao() {
     state.conciliationBankFilter = "ALL";
   }
 
+  const catalogs = state.reconciliationCatalogs;
   const conciliatedAll = result ? result.groups.conciliated || [] : [];
   const conciliatedList = result ? filterTransactionsByBank(conciliatedAll, state.conciliationBankFilter) : [];
   const reviewList = result ? filterTransactionsByBank(result.groups.review, state.conciliationBankFilter) : [];
   const divergentList = result ? filterTransactionsByBank(result.groups.divergent, state.conciliationBankFilter) : [];
-  const selectedVisibleCount = conciliatedList.reduce((acc, tx) => {
+  const selectableAll = getSelectableConciliationTransactions(conciliatedAll);
+  const selectableKeys = new Set(selectableAll.map((tx) => getConciliationTxKey(tx)));
+  state.selectedConciliationKeys = new Set([...state.selectedConciliationKeys].filter((key) => selectableKeys.has(key)));
+  const selectableVisible = getSelectableConciliationTransactions(conciliatedList);
+  const selectedVisibleCount = selectableVisible.reduce((acc, tx) => {
     const key = getConciliationTxKey(tx);
     return acc + (state.selectedConciliationKeys.has(key) ? 1 : 0);
   }, 0);
-  const allVisibleSelected = conciliatedList.length > 0 && selectedVisibleCount === conciliatedList.length;
-  const selectedTotalCount = conciliatedAll.reduce((acc, tx) => {
-    const key = getConciliationTxKey(tx);
-    return acc + (state.selectedConciliationKeys.has(key) ? 1 : 0);
-  }, 0);
+  const allVisibleSelected = selectableVisible.length > 0 && selectedVisibleCount === selectableVisible.length;
+  const selectedTransactions = getSelectedConciliationTransactions(selectableAll);
+  const selectedTotalCount = selectedTransactions.length;
+  const selectedReceberCount = selectedTransactions.filter((tx) => tx?.matched?.entityType === "receber").length;
+  const selectedPagarCount = selectedTransactions.filter((tx) => tx?.matched?.entityType === "pagar").length;
+  const selectedAmountTotal = selectedTransactions.reduce((acc, tx) => acc + Math.abs(Number(tx.amount || 0)), 0);
 
   const stats = result
     ? `Arquivos ${result.totals.files} | Total ${result.totals.total} | Conciliado ${result.totals.conciliated} | Revisar ${result.totals.review} | Divergente ${result.totals.divergent}`
@@ -1693,10 +1758,17 @@ function renderConciliacao() {
   const dedupeSummary = result && Number(result.duplicatesRemoved || 0) > 0 ? `Duplicados removidos no OFX: ${result.duplicatesRemoved}` : "";
   const currentSummary = summarizeByBank(getAllConciliationTransactions(result));
   const accumulatedSummary = summarizeByBank(state.ofxAccumulated);
+  const config = state.reconciliationForm;
+  const catalogsLoaded = Object.values(catalogs).some((items) => Array.isArray(items) && items.length);
+  const catalogStatus = state.reconciliationCatalogError
+    ? `<p class="conc-config-note error">${escapeHtml(state.reconciliationCatalogError)}</p>`
+    : catalogsLoaded
+      ? `<p class="conc-config-note">Os catálogos abaixo vêm da NodeAPI. A baixa só é enviada após sua confirmação.</p>`
+      : `<p class="conc-config-note">Carregando catálogos financeiros da NodeAPI...</p>`;
 
   byId("conciliacao-screen").innerHTML = `
     <h3>Conciliação Bancária</h3>
-    <p>Importe OFX de diferentes bancos e processe os lançamentos.</p>
+    <p>Importe OFX, revise os matches sugeridos e confirme manualmente as baixas que devem seguir para o TopManager.</p>
 
     <div class="toolbar">
       <input type="file" id="ofx-file" accept=".ofx,.txt" multiple class="upload-input" />
@@ -1723,14 +1795,63 @@ function renderConciliacao() {
       <h3>Resumo por banco (acumulado)</h3>
       ${renderBankSummaryTable(accumulatedSummary)}
     </section>
+    <section class="conc-config-card">
+      <div class="conc-config-header">
+        <div>
+          <h3>Baixa Manual</h3>
+          ${catalogStatus}
+        </div>
+        <div class="conc-config-metrics">
+          <span class="tag ok">Receber ${selectedReceberCount}</span>
+          <span class="tag warn">Pagar ${selectedPagarCount}</span>
+          <span class="tag neutral">${currency.format(selectedAmountTotal)}</span>
+        </div>
+      </div>
+      <div class="conc-config-grid">
+        <label class="conc-config-field">
+          <span>Organização ID</span>
+          <input id="conc-organizacao-id" class="upload-input" type="number" min="1" value="${escapeHtml(config.organizacaoId)}" />
+        </label>
+        <label class="conc-config-field">
+          <span>Depositário</span>
+          <select id="conc-depositario-id" class="upload-input">
+            ${buildCatalogOptions(catalogs.depositarios, config.depositarioId, "Selecione o depositário")}
+          </select>
+        </label>
+        <label class="conc-config-field">
+          <span>Tipo operação receber</span>
+          <select id="conc-tipo-operacao-receber-id" class="upload-input">
+            ${buildCatalogOptions(catalogs.tiposDeOperacao, config.tipoOperacaoReceberId, "Selecione para receber")}
+          </select>
+        </label>
+        <label class="conc-config-field">
+          <span>Tipo operação pagar</span>
+          <select id="conc-tipo-operacao-pagar-id" class="upload-input">
+            ${buildCatalogOptions(catalogs.tiposDeOperacao, config.tipoOperacaoPagarId, "Selecione para pagar")}
+          </select>
+        </label>
+        <label class="conc-config-field">
+          <span>Meio de pagamento</span>
+          <select id="conc-meio-pagamento-id" class="upload-input">
+            ${buildCatalogOptions(catalogs.meiosDePagamento, config.meioPagamentoId, "Selecione o meio")}
+          </select>
+        </label>
+        <label class="conc-config-field">
+          <span>Fonte de recursos</span>
+          <select id="conc-fonte-recursos-id" class="upload-input">
+            ${buildCatalogOptions(catalogs.fonteDeRecursos, config.fonteDeRecursosId, "Selecione a fonte")}
+          </select>
+        </label>
+      </div>
+    </section>
 
     <div class="conc-grid">
       <section class="conc-column">
         <div class="conc-header">
-          <h4>A conciliar</h4>
+          <h4>Sugestões de match</h4>
           <div class="conc-actions">
-            <label class="conc-select-all"><input type="checkbox" id="conc-select-all" ${allVisibleSelected ? "checked" : ""} ${conciliatedList.length ? "" : "disabled"} /> Selecionar todos</label>
-            <button id="conc-submit-selected" class="ghost-btn" ${selectedTotalCount ? "" : "disabled"}>Conciliar selecionados (${selectedTotalCount})</button>
+            <label class="conc-select-all"><input type="checkbox" id="conc-select-all" ${allVisibleSelected ? "checked" : ""} ${selectableVisible.length ? "" : "disabled"} /> Selecionar todos</label>
+            <button id="conc-submit-selected" class="ghost-btn" ${selectedTotalCount ? "" : "disabled"}>Confirmar baixa manual (${selectedTotalCount})</button>
           </div>
         </div>
         <div class="column-list">${
@@ -1738,7 +1859,12 @@ function renderConciliacao() {
             ? conciliatedList
                 .map((tx) => {
                   const key = getConciliationTxKey(tx);
-                  return txCard(tx, { selectable: true, checked: state.selectedConciliationKeys.has(key), key });
+                  return txCard(tx, {
+                    selectable: !isConciliationSettled(tx),
+                    checked: state.selectedConciliationKeys.has(key),
+                    disabled: isConciliationSettled(tx),
+                    key
+                  });
                 })
                 .join("") || "<p>Sem itens</p>"
             : "<p>Aguardando OFX</p>"
@@ -1819,14 +1945,14 @@ function renderConciliacao() {
   byId("conc-export-pdf").addEventListener("click", () => exportConciliation("pdf"));
   byId("conc-select-all").addEventListener("change", (event) => {
     const shouldSelect = Boolean(event.target.checked);
-    for (const tx of conciliatedList) {
+    for (const tx of selectableVisible) {
       const key = getConciliationTxKey(tx);
       if (shouldSelect) state.selectedConciliationKeys.add(key);
       else state.selectedConciliationKeys.delete(key);
     }
     renderConciliacao();
   });
-  byId("conc-submit-selected").addEventListener("click", insertSelectedConciliated);
+  byId("conc-submit-selected").addEventListener("click", settleSelectedConciliated);
   document.querySelectorAll(".conc-item-check").forEach((input) => {
     input.addEventListener("change", () => {
       const key = input.dataset.key;
@@ -1839,6 +1965,30 @@ function renderConciliacao() {
   byId("bank-filter").addEventListener("change", (event) => {
     state.conciliationBankFilter = event.target.value;
     renderConciliacao();
+  });
+  byId("conc-organizacao-id").addEventListener("input", (event) => {
+    state.reconciliationForm.organizacaoId = event.target.value;
+    savePreferences();
+  });
+  byId("conc-depositario-id").addEventListener("change", (event) => {
+    state.reconciliationForm.depositarioId = event.target.value;
+    savePreferences();
+  });
+  byId("conc-tipo-operacao-receber-id").addEventListener("change", (event) => {
+    state.reconciliationForm.tipoOperacaoReceberId = event.target.value;
+    savePreferences();
+  });
+  byId("conc-tipo-operacao-pagar-id").addEventListener("change", (event) => {
+    state.reconciliationForm.tipoOperacaoPagarId = event.target.value;
+    savePreferences();
+  });
+  byId("conc-meio-pagamento-id").addEventListener("change", (event) => {
+    state.reconciliationForm.meioPagamentoId = event.target.value;
+    savePreferences();
+  });
+  byId("conc-fonte-recursos-id").addEventListener("change", (event) => {
+    state.reconciliationForm.fonteDeRecursosId = event.target.value;
+    savePreferences();
   });
   document.querySelectorAll(".reprocess-btn").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1929,16 +2079,16 @@ function buildFichaClienteTable(rows) {
                   aprovada_com_ressalvas: "Aprovada com ressalvas"
                 };
                 const statusToneMap = {
-                  pendente: "background:rgba(123,135,148,0.16);border:1px solid rgba(123,135,148,0.24);color:#c7d1db;",
-                  em_analise: "background:rgba(47,109,255,0.16);border:1px solid rgba(47,109,255,0.24);color:#91b5ff;",
-                  aprovada: "background:rgba(25,135,84,0.16);border:1px solid rgba(25,135,84,0.24);color:#6ee7a8;",
-                  reprovada: "background:rgba(211,93,117,0.16);border:1px solid rgba(211,93,117,0.24);color:#ff9caf;",
-                  aprovada_com_ressalvas: "background:rgba(216,160,68,0.16);border:1px solid rgba(216,160,68,0.24);color:#ffd27d;"
+                  pendente: "background:#f1f5f9;border:1px solid #d1dce8;color:#64748b;",
+                  em_analise: "background:rgba(1,69,242,0.10);border:1px solid rgba(1,69,242,0.22);color:#0145F2;",
+                  aprovada: "background:rgba(22,163,74,0.10);border:1px solid rgba(22,163,74,0.22);color:#16a34a;",
+                  reprovada: "background:rgba(220,38,38,0.10);border:1px solid rgba(220,38,38,0.22);color:#dc2626;",
+                  aprovada_com_ressalvas: "background:rgba(217,119,6,0.10);border:1px solid rgba(217,119,6,0.22);color:#d97706;"
                 };
                 const actionLabel = isFinal ? "Ver resultado" : "Analisar";
                 const actionStyle = isFinal
-                  ? "background:linear-gradient(135deg,#2d4d86,#385f9d);border-color:rgba(98,134,214,0.34);color:#edf4ff;"
-                  : "background:linear-gradient(135deg,#2f6dff,#2357d6);border-color:rgba(94,143,255,0.34);color:#edf4ff;";
+                  ? "background:#f1f5f9;border-color:#d1dce8;color:#475569;"
+                  : "background:#0145F2;border-color:#0145F2;color:#ffffff;";
                 return `
                 <tr>
                   <td>${row.id}</td>
@@ -1968,14 +2118,14 @@ function buildFichaClienteDetailSection(title, items) {
   return `
     <section style="margin-bottom:18px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-        <div style="width:8px;height:8px;border-radius:999px;background:linear-gradient(135deg,#69a1ff,#2f6dff);box-shadow:0 0 0 6px rgba(47,109,255,0.12);"></div>
+        <div style="width:8px;height:8px;border-radius:999px;background:#0145F2;box-shadow:0 0 0 6px rgba(1,69,242,0.12);"></div>
         <h4 style="margin:0;font-size:15px;letter-spacing:0.01em;">${title}</h4>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
         ${items
           .map(
             (item) => `
-              <div style="padding:14px 14px 13px;border:1px solid rgba(133,164,222,0.14);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02));box-shadow:inset 0 1px 0 rgba(255,255,255,0.03);">
+              <div style="padding:14px 14px 13px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
                 <small style="display:block;color:var(--text-soft);margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">${escapeHtml(item.label)}</small>
                 <div style="font-size:14px;font-weight:700;color:var(--text-strong);line-height:1.45;">${escapeHtml(item.value || "-")}</div>
               </div>
@@ -2001,24 +2151,24 @@ function buildFichaClienteDetailPanel(ficha) {
   };
   const statusToneMap = {
     em_analise: {
-      bg: "rgba(47,109,255,0.16)",
-      border: "rgba(47,109,255,0.28)",
-      text: "#91b5ff"
+      bg: "rgba(1,69,242,0.10)",
+      border: "rgba(1,69,242,0.22)",
+      text: "#0145F2"
     },
     aprovada: {
-      bg: "rgba(25,135,84,0.16)",
-      border: "rgba(25,135,84,0.28)",
-      text: "#6ee7a8"
+      bg: "rgba(22,163,74,0.10)",
+      border: "rgba(22,163,74,0.22)",
+      text: "#16a34a"
     },
     reprovada: {
-      bg: "rgba(211,93,117,0.16)",
-      border: "rgba(211,93,117,0.28)",
-      text: "#ff9caf"
+      bg: "rgba(220,38,38,0.10)",
+      border: "rgba(220,38,38,0.22)",
+      text: "#dc2626"
     },
     aprovada_com_ressalvas: {
-      bg: "rgba(216,160,68,0.16)",
-      border: "rgba(216,160,68,0.28)",
-      text: "#ffd27d"
+      bg: "rgba(217,119,6,0.10)",
+      border: "rgba(217,119,6,0.22)",
+      text: "#d97706"
     }
   };
   const currentStatus = ficha.statusAnalise || "em_analise";
@@ -2031,10 +2181,7 @@ function buildFichaClienteDetailPanel(ficha) {
   ];
 
   return `
-    <article class="table-wrap" style="margin-top:16px;padding:22px;border-radius:24px;background:
-      radial-gradient(480px 220px at 100% 0%, rgba(47,109,255,0.18), transparent 72%),
-      linear-gradient(180deg, rgba(20,31,40,0.98), rgba(14,23,31,0.98));
-      border:1px solid rgba(120,151,219,0.16);box-shadow:0 22px 48px rgba(5,10,14,0.34);">
+    <article class="table-wrap" style="margin-top:16px;padding:22px;border-radius:24px;background:#ffffff;border:1px solid #d1dce8;box-shadow:0 4px 20px rgba(1,69,242,0.06);">
       <div style="display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap;">
         <div style="display:flex;flex-direction:column;gap:10px;">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -2043,15 +2190,15 @@ function buildFichaClienteDetailPanel(ficha) {
           </div>
           <p style="margin:0;color:var(--text-soft);font-size:15px;max-width:720px;">${escapeHtml(ficha.razaoSocial || ficha.nomeFantasia || "Sem razão social")}</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <div style="padding:10px 14px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(133,164,222,0.14);">
+            <div style="padding:10px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2eaf0;">
               <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Vendedor</small>
               <strong style="font-size:13px;">${escapeHtml(ficha.vendedor || "-")}</strong>
             </div>
-            <div style="padding:10px 14px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(133,164,222,0.14);">
+            <div style="padding:10px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2eaf0;">
               <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Data da ficha</small>
               <strong style="font-size:13px;">${escapeHtml(parseDate(ficha.data) || "-")}</strong>
             </div>
-            <div style="padding:10px 14px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(133,164,222,0.14);">
+            <div style="padding:10px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2eaf0;">
               <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Tipo</small>
               <strong style="font-size:13px;">${escapeHtml(ficha.tipo || "-")}</strong>
             </div>
@@ -2102,7 +2249,7 @@ function buildFichaClienteDetailPanel(ficha) {
       ])}
       <div style="margin-bottom:16px;">
         <h4 style="margin:0 0 8px 0;">Parecer do Representante</h4>
-        <div style="padding:16px;border:1px solid rgba(133,164,222,0.14);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02));white-space:pre-wrap;line-height:1.6;">${escapeHtml(ficha.parecer || "-")}</div>
+        <div style="padding:16px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;white-space:pre-wrap;line-height:1.6;">${escapeHtml(ficha.parecer || "-")}</div>
       </div>
       <div style="margin-bottom:16px;">
         <h4 style="margin:0 0 8px 0;">Anexos</h4>
@@ -2111,7 +2258,7 @@ function buildFichaClienteDetailPanel(ficha) {
             ? `<div style="display:grid;gap:8px;">${anexos
                 .map(
                   (item) => `
-                    <div style="padding:14px;border:1px solid rgba(133,164,222,0.14);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02));">
+                    <div style="padding:14px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;">
                       <strong>${escapeHtml(item.nome || "Anexo")}</strong>
                       <div style="color:var(--text-soft);font-size:12px;">${escapeHtml(item.assetPath || "")}</div>
                     </div>
@@ -2123,28 +2270,25 @@ function buildFichaClienteDetailPanel(ficha) {
       </div>
         </div>
         <aside style="min-width:0;position:sticky;top:0;">
-      <div style="padding:18px;border:1px solid rgba(92,137,255,0.28);border-radius:22px;background:
-        radial-gradient(220px 180px at 100% 0%, rgba(47,109,255,0.24), transparent 72%),
-        linear-gradient(180deg, rgba(20,40,74,0.64), rgba(17,31,54,0.72));
-        box-shadow:inset 0 1px 0 rgba(255,255,255,0.06), 0 18px 40px rgba(8,17,35,0.28);">
+      <div style="padding:18px;border:1px solid #d1dce8;border-radius:22px;background:#f8fafc;box-shadow:0 4px 16px rgba(1,69,242,0.07);">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:14px;">
           <div>
-            <small style="display:block;color:#98b5ff;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">Resultado da análise</small>
+            <small style="display:block;color:#0145F2;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">Resultado da análise</small>
             <h4 style="margin:0;font-size:20px;letter-spacing:-0.02em;">Análise Financeira</h4>
           </div>
           <span style="display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:${statusTone.bg};border:1px solid ${statusTone.border};color:${statusTone.text};font-size:11px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;">${escapeHtml(statusLabelMap[currentStatus] || "Em análise")}</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px;">
-          <div style="padding:12px;border-radius:16px;background:rgba(8,18,33,0.34);border:1px solid rgba(124,151,214,0.14);">
-            <small style="display:block;color:#9bb1d4;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Valor</small>
+          <div style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2eaf0;">
+            <small style="display:block;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Valor</small>
             <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.valorPedido || "-")}</strong>
           </div>
-          <div style="padding:12px;border-radius:16px;background:rgba(8,18,33,0.34);border:1px solid rgba(124,151,214,0.14);">
-            <small style="display:block;color:#9bb1d4;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Pagamento</small>
+          <div style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2eaf0;">
+            <small style="display:block;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Pagamento</small>
             <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.formaPagamento || "-")}</strong>
           </div>
-          <div style="padding:12px;border-radius:16px;background:rgba(8,18,33,0.34);border:1px solid rgba(124,151,214,0.14);">
-            <small style="display:block;color:#9bb1d4;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Prazo</small>
+          <div style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2eaf0;">
+            <small style="display:block;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Prazo</small>
             <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.prazoEstimado || "-")}</strong>
           </div>
         </div>
@@ -2185,7 +2329,7 @@ function buildFichaClienteDetailPanel(ficha) {
         <div style="margin-top:14px;">
           ${
             isFinal
-              ? `<div style="padding:14px 16px;border-radius:16px;background:rgba(255,255,255,0.06);border:1px solid rgba(133,164,222,0.14);text-align:center;font-weight:700;color:var(--text-soft);">Análise concluída. Esta ficha não pode mais ser alterada.</div>`
+              ? `<div style="padding:14px 16px;border-radius:16px;background:#f1f5f9;border:1px solid #e2eaf0;text-align:center;font-weight:700;color:var(--text-soft);">Análise concluída. Esta ficha não pode mais ser alterada.</div>`
               : `<button id="ficha-save-analise" class="primary-btn" style="width:100%;padding:14px 18px;border-radius:16px;" ${state.fichaClienteSaving ? "disabled" : ""}>${state.fichaClienteSaving ? "Salvando..." : "Salvar análise"}</button>`
           }
         </div>
@@ -2198,7 +2342,7 @@ function buildFichaClienteDetailPanel(ficha) {
 
 function renderFichaCliente() {
   const filter = state.fichaClienteFilter;
-  const errorBlock = state.fichaClienteError ? `<p style="color:#a33434;font-weight:600;">${state.fichaClienteError}</p>` : "";
+  const errorBlock = state.fichaClienteError ? `<p style="color:#dc2626;font-weight:600;">${state.fichaClienteError}</p>` : "";
   byId("ficha-cliente-screen").innerHTML = `
     <article class="table-wrap list-full-height">
       <h3>Ficha de Cliente</h3>
@@ -2346,7 +2490,7 @@ function buildCheckinDetailPanel(item) {
       ])}
       <div style="margin-bottom:16px;">
         <h4 style="margin:0 0 8px 0;">O que foi negociado</h4>
-        <div style="padding:16px;border:1px solid rgba(133,164,222,0.14);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02));white-space:pre-wrap;line-height:1.6;">${escapeHtml(item.negociado || "-")}</div>
+        <div style="padding:16px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;white-space:pre-wrap;line-height:1.6;">${escapeHtml(item.negociado || "-")}</div>
       </div>
       <div>
         <h4 style="margin:0 0 10px 0;">Amostras solicitadas</h4>
@@ -2356,12 +2500,12 @@ function buildCheckinDetailPanel(item) {
                 ${item.amostras
                   .map(
                     (amostra) => `
-                      <div style="padding:14px;border:1px solid rgba(133,164,222,0.14);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02));">
+                      <div style="padding:14px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;">
                         <small style="display:block;color:var(--text-soft);margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">Descrição</small>
                         <div style="font-size:14px;font-weight:700;color:var(--text-strong);line-height:1.45;">${escapeHtml(amostra.descricao || "-")}</div>
                         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-                          <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:rgba(47,109,255,0.12);border:1px solid rgba(47,109,255,0.24);color:#91b5ff;font-size:11px;font-weight:800;">${escapeHtml(amostra.status || "-")}</span>
-                          <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.04);border:1px solid rgba(133,164,222,0.14);color:var(--text-soft);font-size:11px;font-weight:700;">${escapeHtml(parseDate(amostra.dataEntrega) || "Sem data")}</span>
+                          <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:rgba(1,69,242,0.10);border:1px solid rgba(1,69,242,0.22);color:#0145F2;font-size:11px;font-weight:800;">${escapeHtml(amostra.status || "-")}</span>
+                          <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:#f1f5f9;border:1px solid #e2eaf0;color:var(--text-soft);font-size:11px;font-weight:700;">${escapeHtml(parseDate(amostra.dataEntrega) || "Sem data")}</span>
                         </div>
                       </div>
                     `
@@ -2377,7 +2521,7 @@ function buildCheckinDetailPanel(item) {
 
 function renderCheckins() {
   const filter = state.checkinsFilter;
-  const errorBlock = state.checkinsError ? `<p style="color:#a33434;font-weight:600;">${state.checkinsError}</p>` : "";
+  const errorBlock = state.checkinsError ? `<p style="color:#dc2626;font-weight:600;">${state.checkinsError}</p>` : "";
   byId("checkins-screen").innerHTML = `
     <article class="table-wrap list-full-height">
       <h3>Check-ins de Clientes</h3>
@@ -2513,22 +2657,84 @@ async function processFolderOfx() {
   }
 }
 
-async function insertSelectedConciliated() {
+async function loadReconciliationCatalogs() {
+  try {
+    const payload = await fetchJson("/api/reconciliation/catalogs");
+    state.reconciliationCatalogs = {
+      fonteDeRecursos: Array.isArray(payload.fonteDeRecursos) ? payload.fonteDeRecursos : [],
+      depositarios: Array.isArray(payload.depositarios) ? payload.depositarios : [],
+      tiposDeOperacao: Array.isArray(payload.tiposDeOperacao) ? payload.tiposDeOperacao : [],
+      meiosDePagamento: Array.isArray(payload.meiosDePagamento) ? payload.meiosDePagamento : []
+    };
+    state.reconciliationCatalogError = "";
+  } catch (error) {
+    state.reconciliationCatalogs = {
+      fonteDeRecursos: [],
+      depositarios: [],
+      tiposDeOperacao: [],
+      meiosDePagamento: []
+    };
+    state.reconciliationCatalogError = error.message;
+  }
+}
+
+function mergeSettlementResults(results) {
+  if (!state.ofxResult?.groups?.conciliated || !Array.isArray(results) || !results.length) return;
+  const map = new Map(results.map((item) => [item.clientKey, item]));
+  state.ofxResult.groups.conciliated = state.ofxResult.groups.conciliated.map((tx) => {
+    const key = getConciliationTxKey(tx);
+    const result = map.get(key);
+    if (!result) return tx;
+    return {
+      ...tx,
+      settlement: {
+        status: result.status,
+        message: result.message,
+        processedAt: result.processedAt,
+        endpoint: result.endpoint,
+        itemCount: result.itemCount
+      }
+    };
+  });
+}
+
+async function settleSelectedConciliated() {
   if (!state.ofxResult) return;
 
   const conciliated = state.ofxResult.groups.conciliated || [];
-  const selected = conciliated.filter((tx) => state.selectedConciliationKeys.has(getConciliationTxKey(tx)));
+  const selected = getSelectedConciliationTransactions(getSelectableConciliationTransactions(conciliated));
   if (!selected.length) {
-    alert("Selecione pelo menos um item em 'A conciliar'.");
+    alert("Selecione pelo menos um item em 'Sugestões de match'.");
     return;
   }
 
-  const payload = await fetchJson("/api/reconciliation/insert", {
+  const selectedReceberCount = selected.filter((tx) => tx?.matched?.entityType === "receber").length;
+  const selectedPagarCount = selected.filter((tx) => tx?.matched?.entityType === "pagar").length;
+  const selectedAmountTotal = selected.reduce((acc, tx) => acc + Math.abs(Number(tx.amount || 0)), 0);
+  const summary = [
+    `Confirmar baixa manual de ${selected.length} item(ns)?`,
+    `Receber: ${selectedReceberCount}`,
+    `Pagar: ${selectedPagarCount}`,
+    `Total selecionado: ${currency.format(selectedAmountTotal)}`
+  ].join("\n");
+
+  if (!window.confirm(summary)) {
+    return;
+  }
+
+  const payload = await fetchJson("/api/reconciliation/settle", {
     method: "POST",
-    body: JSON.stringify({ transactions: selected, usuario: state.user?.usuario || "usuario" })
+    body: JSON.stringify({
+      usuario: state.user?.usuario || "usuario",
+      config: state.reconciliationForm,
+      transactions: selected
+    })
   });
 
-  alert(payload.message);
+  mergeSettlementResults(payload.results || []);
+  state.selectedConciliationKeys = new Set();
+  renderConciliacao();
+  alert(payload.message || "Baixa manual processada.");
 }
 
 async function loadReconciliationJobs() {

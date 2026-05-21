@@ -1,0 +1,27 @@
+CdTop	NmTop
+13	Depósito e Confirmação de Cheque Pago
+19	Depósito e Confirmação de Cheque Recebido
+21	Devolução de Cheque Recebido
+23	Reapresentação de Cheque Recebido
+29	Substituição de Cheque Recebido
+60	Pagamento de Títulos
+61	Recebimento de Títulos
+62	Pagamentos de Despesas Bancárias
+63	Recebimentos Direto
+64	Adiantamento a Fornecedores
+65	Devolução de Adiantamento a Fornecedores
+66	Adiantamento de Clientes
+67	Devolução de Adiantamento de Clientes
+68	Transferência Entre Depositários
+69	Transferência Entre Depositários Origem
+463	Recebimento de Títulos - Dotação
+469	Substituição de Cheque Recebido - Dotação
+470	Pagamento de Títulos - Dotação
+472	Adiantamento de Clientes - Dotação
+499	Pagamento Direto
+501	Deposito Não identificado
+503	Baixa de Emprestimos e Financiamentos
+504	Receita Financeira
+513	Aquisição de Emprestimos e Financ
+602	Estorno de Débito
+607	Estorno a Crédito

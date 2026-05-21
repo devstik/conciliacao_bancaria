@@ -57,7 +57,8 @@ PORT=3005 npm run dev
 ```
 
 ## Login
-- Defina `APP_USERNAME` e `APP_PASSWORD` no ambiente.
+- O login padrão da plataforma é `jpsilva` / `871125`.
+- Em produção, você também pode sobrescrever com `APP_USERNAME` e `APP_PASSWORD` no ambiente da Hostinger.
 
 Observação:
 - O login da plataforma é local e protege as rotas internas da API.
@@ -82,7 +83,7 @@ DB_POST_URL=https://seu-endpoint.com/api/transacoes npm run dev
 Para a tela `Ficha de Cliente`, configure a conexão com sua API Node:
 
 ```bash
-export NODE_API_BASE_URL='https://mediumpurple-loris-159660.hostingersite.com'
+export NODE_API_BASE_URL='https://api.stiktech.com.br'
 export NODE_API_USERNAME='joao'
 export NODE_API_PASSWORD='SUA_SENHA_NODE_API'
 export NODE_API_APP_ID='StikVendas'

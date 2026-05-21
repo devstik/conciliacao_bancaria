@@ -19,6 +19,8 @@ const {
 } = require("./services/reconciliationService");
 const { TopManagerService } = require("./services/topManagerService");
 
+loadLocalEnv();
+
 const app = express();
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -33,13 +35,13 @@ const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS || 8 * 60 * 60 * 1000);
 const LOCK_WINDOW_MS = Number(process.env.LOCK_WINDOW_MS || 10 * 60 * 1000);
 const LOCK_THRESHOLD = Number(process.env.LOCK_THRESHOLD || 5);
 const LOCK_TIME_MS = Number(process.env.LOCK_TIME_MS || 15 * 60 * 1000);
-const APP_USERNAME = String(process.env.APP_USERNAME || "").trim();
-const APP_PASSWORD = String(process.env.APP_PASSWORD || "").trim();
-const NODE_API_BASE_URL = String(process.env.NODE_API_BASE_URL || "").trim().replace(/\/+$/, "");
+const APP_USERNAME = String(process.env.APP_USERNAME || "jpsilva").trim();
+const APP_PASSWORD = String(process.env.APP_PASSWORD || "871125").trim();
+const NODE_API_BASE_URL = String(process.env.NODE_API_BASE_URL || "https://api.stiktech.com.br").trim().replace(/\/+$/, "");
 const NODE_API_TOKEN = String(process.env.NODE_API_TOKEN || "").trim();
-const NODE_API_USERNAME = String(process.env.NODE_API_USERNAME || "").trim();
-const NODE_API_PASSWORD = String(process.env.NODE_API_PASSWORD || "").trim();
-const NODE_API_APP_ID = String(process.env.NODE_API_APP_ID || "").trim();
+const NODE_API_USERNAME = String(process.env.NODE_API_USERNAME || "joao").trim();
+const NODE_API_PASSWORD = String(process.env.NODE_API_PASSWORD || "871125").trim();
+const NODE_API_APP_ID = String(process.env.NODE_API_APP_ID || "StikVendas").trim();
 const sessions = new Map();
 const loginAttempts = new Map();
 const nodeApiSession = {
@@ -54,6 +56,32 @@ const metrics = {
   errorResponses: 0,
   avgLatencyMs: 0
 };
+
+function loadLocalEnv() {
+  const envPath = path.join(__dirname, ".env");
+  if (!fs.existsSync(envPath)) return;
+
+  const lines = fs.readFileSync(envPath, "utf8").split(/\r?\n/);
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex <= 0) continue;
+
+    const key = line.slice(0, separatorIndex).trim();
+    if (!key || process.env[key] !== undefined) continue;
+
+    let value = line.slice(separatorIndex + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    process.env[key] = value;
+  }
+}
 
 app.disable("x-powered-by");
 app.use(express.json({ limit: "2mb" }));
@@ -252,9 +280,55 @@ function pickField(row, keys, fallback = "") {
   return fallback;
 }
 
+function parsePositiveInt(value) {
+  const numeric = Number(value);
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : 0;
+}
+
+function normalizeMoney(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  return Number(Math.abs(numeric).toFixed(2));
+}
+
+function buildMatchedSettlementItem(row, entityType) {
+  if (entityType === "receber") {
+    return {
+      documentoID: row.documentoID,
+      tituloID: parsePositiveInt(pickField(row, ["tituloID", "tituloId", "tituloReceberID", "movimentoFinanceiroID", "documentoID"])),
+      numeroDocumento: row.numeroDocumento,
+      titulo: row.titulo,
+      nome: row.cliente || "",
+      vencimento: row.vencimento,
+      saldo: normalizeMoney(row.saldo)
+    };
+  }
+
+  return {
+    documentoID: row.documentoID,
+    fornecedorID: parsePositiveInt(
+      pickField(row, ["fornecedorID", "fornecedorId", "entidadeID", "entidadeId", "clienteFornecedorID", "documentoID"])
+    ),
+    fornecedorCNPJCPF: String(
+      pickField(row, ["fornecedorCNPJCPF", "cnpjCpf", "cpfCnpj", "documento", "cnpjCPF", "cnpjOuCpf"], "")
+    ).trim(),
+    numero: String(pickField(row, ["numeroDocumento", "numero", "documentoNumero", "documentoID"], "")).trim(),
+    numeroDocumento: row.numeroDocumento,
+    titulo: row.titulo,
+    nome: row.fornecedor || "",
+    vencimento: row.vencimento,
+    saldo: normalizeMoney(row.saldo)
+  };
+}
+
+function buildConciliationTxKey(tx) {
+  return [tx.fitId || "", tx.postedAt || "", Number(tx.amount || 0).toFixed(2), tx.documentNumber || "", tx.name || ""].join("|");
+}
+
 function mapReceberRow(row) {
   return {
     documentoID: pickField(row, ["documentoID"]),
+    tituloID: pickField(row, ["tituloID", "tituloId", "tituloReceberID", "movimentoFinanceiroID", "documentoID"]),
     numeroDocumento: String(pickField(row, ["numeroDocumento"])),
     cliente: pickField(row, ["cliente", "clienteNome", "nomeCliente", "entidadeNome"]),
     titulo: pickField(row, ["titulo", "descricao", "descricaoDoMovimento", "historico"]),
@@ -267,6 +341,8 @@ function mapReceberRow(row) {
 function mapPagarRow(row) {
   return {
     documentoID: pickField(row, ["documentoID"]),
+    fornecedorID: pickField(row, ["fornecedorID", "fornecedorId", "entidadeID", "entidadeId", "clienteFornecedorID", "documentoID"]),
+    fornecedorCNPJCPF: pickField(row, ["fornecedorCNPJCPF", "cnpjCpf", "cpfCnpj", "documento", "cnpjCPF", "cnpjOuCpf"]),
     numeroDocumento: String(pickField(row, ["numeroDocumento"])),
     fornecedor: pickField(row, ["fornecedor", "fornecedorNome", "nomeFornecedor", "entidadeNome"]),
     titulo: pickField(row, ["titulo", "descricao", "descricaoDoMovimento", "historico"]),
@@ -280,22 +356,22 @@ function chooseBestMatch(tx, candidates, entityType) {
   if (!candidates.length) return null;
   const txText = normalizeText(`${tx.name || ""} ${tx.memo || ""} ${tx.documentNumber || ""} ${tx.fitId || ""}`);
 
-  const scored = candidates.map((candidate) => {
+  const scored = candidates.map(({ row, index }) => {
     const candidateText = normalizeText(
-      `${candidate.numeroDocumento || ""} ${candidate.documentoID || ""} ${candidate.titulo || ""} ${candidate.cliente || ""} ${candidate.fornecedor || ""}`
+      `${row.numeroDocumento || ""} ${row.documentoID || ""} ${row.titulo || ""} ${row.cliente || ""} ${row.fornecedor || ""}`
     );
     let score = 0;
-    if (amountClose(tx.amount, candidate.saldo)) score += 50;
-    const diff = daysDiff(tx.postedAt, candidate.vencimento);
+    if (amountClose(tx.amount, row.saldo)) score += 50;
+    const diff = daysDiff(tx.postedAt, row.vencimento);
     if (diff <= 0) score += 20;
     else if (diff <= 2) score += 18;
     else if (diff <= 5) score += 14;
     else if (diff <= 10) score += 8;
-    if (tx.documentNumber && candidate.numeroDocumento && tx.documentNumber.includes(candidate.numeroDocumento)) score += 30;
-    if (tx.documentNumber && candidate.documentoID && tx.documentNumber.includes(String(candidate.documentoID))) score += 20;
+    if (tx.documentNumber && row.numeroDocumento && tx.documentNumber.includes(row.numeroDocumento)) score += 30;
+    if (tx.documentNumber && row.documentoID && tx.documentNumber.includes(String(row.documentoID))) score += 20;
     if (txText && candidateText && txText.includes(candidateText)) score += 18;
-    if (txText && candidate.numeroDocumento && txText.includes(normalizeText(candidate.numeroDocumento))) score += 12;
-    return { candidate, score };
+    if (txText && row.numeroDocumento && txText.includes(normalizeText(row.numeroDocumento))) score += 12;
+    return { row, index, score };
   });
 
   scored.sort((a, b) => b.score - a.score);
@@ -304,13 +380,18 @@ function chooseBestMatch(tx, candidates, entityType) {
 
   return {
     entityType,
-    documentoID: best.candidate.documentoID,
-    numeroDocumento: best.candidate.numeroDocumento,
-    titulo: best.candidate.titulo,
-    nome: best.candidate.cliente || best.candidate.fornecedor || "",
-    vencimento: best.candidate.vencimento,
-    saldo: best.candidate.saldo,
-    score: best.score
+    isGroup: false,
+    itemCount: 1,
+    documentoID: best.row.documentoID,
+    numeroDocumento: best.row.numeroDocumento,
+    titulo: best.row.titulo,
+    nome: best.row.cliente || best.row.fornecedor || "",
+    vencimento: best.row.vencimento,
+    saldo: best.row.saldo,
+    totalSaldo: normalizeMoney(best.row.saldo),
+    score: best.score,
+    items: [buildMatchedSettlementItem(best.row, entityType)],
+    usedIndexes: [best.index]
   };
 }
 
@@ -391,14 +472,7 @@ function buildGroupMatch(tx, sourceRows, usedSet, entityType) {
   dfs(0, 0, []);
   if (!best) return null;
 
-  const items = best.picked.map(({ row }) => ({
-    documentoID: row.documentoID,
-    numeroDocumento: row.numeroDocumento,
-    titulo: row.titulo,
-    nome: row.cliente || row.fornecedor || "",
-    vencimento: row.vencimento,
-    saldo: row.saldo
-  }));
+  const items = best.picked.map(({ row }) => buildMatchedSettlementItem(row, entityType));
 
   return {
     entityType,
@@ -589,38 +663,30 @@ function classifyTransactions(transactions, receberRows, pagarRows) {
     const usedSet = isCredit ? usedReceber : usedPagar;
     const entityType = isCredit ? "receber" : "pagar";
     const candidates = sourceRows
-      .filter((row, index) => !usedSet.has(index))
-      .filter((row) => amountClose(tx.amount, row.saldo))
-      .filter((row) => daysDiff(tx.postedAt, row.vencimento) <= 10);
+      .map((row, index) => ({ row, index }))
+      .filter(({ index }) => !usedSet.has(index))
+      .filter(({ row }) => amountClose(tx.amount, row.saldo))
+      .filter(({ row }) => daysDiff(tx.postedAt, row.vencimento) <= 10);
 
     const match = chooseBestMatch(tx, candidates, entityType);
 
     if (match) {
-      const sourceIndex = sourceRows.findIndex(
-        (row) =>
-          row.documentoID === match.documentoID &&
-          String(row.numeroDocumento || "") === String(match.numeroDocumento || "") &&
-          String(row.titulo || "") === String(match.titulo || "")
-      );
-      if (sourceIndex >= 0) usedSet.add(sourceIndex);
-      conciliated.push({ ...tx, matched: match });
+      match.usedIndexes.forEach((index) => usedSet.add(index));
+      const { usedIndexes, ...storedMatch } = match;
+      conciliated.push({ ...tx, matched: storedMatch });
       continue;
     }
 
     const groupedMatch = buildGroupMatch(tx, sourceRows, usedSet, entityType);
     if (groupedMatch) {
       groupedMatch.usedIndexes.forEach((index) => usedSet.add(index));
+      const { usedIndexes, ...storedMatch } = groupedMatch;
       conciliated.push({
         ...tx,
         matched: {
-          entityType: groupedMatch.entityType,
-          isGroup: true,
-          itemCount: groupedMatch.itemCount,
-          totalSaldo: groupedMatch.totalSaldo,
-          numeroDocumento: groupedMatch.items.map((item) => item.numeroDocumento).filter(Boolean).join(", "),
-          titulo: `${groupedMatch.itemCount} titulos`,
-          score: groupedMatch.score,
-          items: groupedMatch.items
+          ...storedMatch,
+          numeroDocumento: storedMatch.items.map((item) => item.numeroDocumento).filter(Boolean).join(", "),
+          titulo: `${storedMatch.itemCount} titulos`
         }
       });
       continue;
@@ -911,6 +977,193 @@ async function processConciliationFromTransactions(transactions, filesSummary) {
     },
     groups
   };
+}
+
+function normalizeCatalogItems(payload, { idKeys, labelKeys }) {
+  const rows = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.items)
+      ? payload.items
+      : Array.isArray(payload?.rows)
+        ? payload.rows
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+
+  return rows
+    .map((row) => {
+      const id = parsePositiveInt(pickField(row, idKeys, row?.id));
+      const label = String(pickField(row, labelKeys, row?.label || "")).trim();
+      if (!id || !label) return null;
+      return {
+        id,
+        label,
+        ativo: row?.Ativo ?? row?.ativo ?? 1
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.id - b.id);
+}
+
+async function loadReconciliationCatalogsFromNodeApi() {
+  const [fonteDeRecursosRaw, depositariosRaw, tiposDeOperacaoRaw, meiosDePagamentoRaw] = await Promise.all([
+    fetchNodeApiJson("/api/financeiro/catalogos/fonte-de-recursos"),
+    fetchNodeApiJson("/api/financeiro/catalogos/depositarios"),
+    fetchNodeApiJson("/api/financeiro/catalogos/tipos-de-operacao"),
+    fetchNodeApiJson("/api/financeiro/catalogos/meios-de-pagamento")
+  ]);
+
+  return {
+    fonteDeRecursos: normalizeCatalogItems(fonteDeRecursosRaw, {
+      idKeys: ["FonteDeRecursosID", "fonteDeRecursosID", "id"],
+      labelKeys: ["FonteDeRecursos", "fonteDeRecursos", "label"]
+    }),
+    depositarios: normalizeCatalogItems(depositariosRaw, {
+      idKeys: ["DepositarioID", "depositarioID", "id"],
+      labelKeys: ["Depositario", "depositario", "label"]
+    }),
+    tiposDeOperacao: normalizeCatalogItems(tiposDeOperacaoRaw, {
+      idKeys: ["TipoDeOperacaoID", "tipoDeOperacaoID", "id"],
+      labelKeys: ["TipoDeOperacao", "tipoDeOperacao", "label"]
+    }),
+    meiosDePagamento: normalizeCatalogItems(meiosDePagamentoRaw, {
+      idKeys: ["MeioDePagamentoID", "meioDePagamentoID", "id"],
+      labelKeys: ["MeioDePagamento", "meioDePagamento", "label"]
+    })
+  };
+}
+
+function normalizeSettlementConfig(config = {}) {
+  return {
+    organizacaoId: parsePositiveInt(config.organizacaoId) || 2,
+    depositarioId: parsePositiveInt(config.depositarioId),
+    tipoOperacaoReceberId: parsePositiveInt(config.tipoOperacaoReceberId),
+    tipoOperacaoPagarId: parsePositiveInt(config.tipoOperacaoPagarId),
+    meioPagamentoId: parsePositiveInt(config.meioPagamentoId),
+    fonteDeRecursosId: parsePositiveInt(config.fonteDeRecursosId)
+  };
+}
+
+function validateSettlementRequest(transactions, config) {
+  const messages = [];
+  const hasReceber = transactions.some((tx) => tx?.matched?.entityType === "receber");
+  const hasPagar = transactions.some((tx) => tx?.matched?.entityType === "pagar");
+
+  if (!config.depositarioId) messages.push("Selecione o Depositário.");
+  if (!config.meioPagamentoId) messages.push("Selecione o Meio de Pagamento.");
+  if (!config.fonteDeRecursosId) messages.push("Selecione a Fonte de Recursos.");
+  if (hasReceber && !config.tipoOperacaoReceberId) messages.push("Selecione o Tipo de Operação para receber.");
+  if (hasPagar && !config.tipoOperacaoPagarId) messages.push("Selecione o Tipo de Operação para pagar.");
+
+  return messages;
+}
+
+function getSettlementItems(tx) {
+  return Array.isArray(tx?.matched?.items) ? tx.matched.items : [];
+}
+
+function getSettlementReference(tx) {
+  return String(tx?.documentNumber || tx?.name || tx?.fitId || buildConciliationTxKey(tx)).trim();
+}
+
+function buildReceberSettlementPayload(tx, config) {
+  const items = getSettlementItems(tx).map((item) => {
+    const tituloID = parsePositiveInt(item.tituloID || item.documentoID);
+    if (!tituloID) {
+      throw new Error(`Match sem TituloID para ${getSettlementReference(tx)}.`);
+    }
+
+    return {
+      Id: 0,
+      MovimentoDepositarioID: 0,
+      TituloID: tituloID,
+      Valor: normalizeMoney(item.saldo)
+    };
+  });
+
+  if (!items.length) {
+    throw new Error(`Nenhum item conciliado encontrado para ${getSettlementReference(tx)}.`);
+  }
+
+  return {
+    Id: 0,
+    OrganizacaoID: config.organizacaoId,
+    DepositarioID: config.depositarioId,
+    Data: formatDateToTopManager(tx.postedAt),
+    TipoDeOperacaoID: config.tipoOperacaoReceberId,
+    MeioDePagamentoID: config.meioPagamentoId,
+    FonteDeRecursosID: config.fonteDeRecursosId,
+    ItensRcms: items
+  };
+}
+
+function buildPagarSettlementPayload(tx, config) {
+  const items = getSettlementItems(tx).map((item) => {
+    const fornecedorID = parsePositiveInt(item.fornecedorID || item.documentoID);
+    const numero = String(item.numero || item.numeroDocumento || tx.documentNumber || item.documentoID || "").trim();
+
+    if (!fornecedorID) {
+      throw new Error(`Match sem FornecedorID para ${getSettlementReference(tx)}.`);
+    }
+    if (!numero) {
+      throw new Error(`Match sem Numero para ${getSettlementReference(tx)}.`);
+    }
+
+    return {
+      Id: 0,
+      MovimentoDepositarioID: 0,
+      FornecedorID: fornecedorID,
+      FornecedorCNPJCPF: String(item.fornecedorCNPJCPF || "").trim(),
+      Numero: numero,
+      Valor: normalizeMoney(item.saldo)
+    };
+  });
+
+  if (!items.length) {
+    throw new Error(`Nenhum item conciliado encontrado para ${getSettlementReference(tx)}.`);
+  }
+
+  return {
+    Id: 0,
+    OrganizacaoID: config.organizacaoId,
+    DepositarioID: config.depositarioId,
+    Data: formatDateToTopManager(tx.postedAt),
+    TipoDeOperacaoID: config.tipoOperacaoPagarId,
+    MeioDePagamentoID: config.meioPagamentoId,
+    FonteDeRecursosID: config.fonteDeRecursosId,
+    ItensCpms: items
+  };
+}
+
+async function settleConciliationTransaction(tx, config) {
+  const entityType = tx?.matched?.entityType;
+  if (entityType === "receber") {
+    await topManager.post("financeiro/movimentosdedepositario/incluirrcm", buildReceberSettlementPayload(tx, config));
+    return {
+      clientKey: buildConciliationTxKey(tx),
+      entityType,
+      status: "success",
+      endpoint: "incluirrcm",
+      itemCount: getSettlementItems(tx).length,
+      processedAt: new Date().toISOString(),
+      message: "Baixa de contas a receber registrada."
+    };
+  }
+
+  if (entityType === "pagar") {
+    await topManager.post("financeiro/movimentosdedepositario/incluircpm", buildPagarSettlementPayload(tx, config));
+    return {
+      clientKey: buildConciliationTxKey(tx),
+      entityType,
+      status: "success",
+      endpoint: "incluircpm",
+      itemCount: getSettlementItems(tx).length,
+      processedAt: new Date().toISOString(),
+      message: "Baixa de contas a pagar registrada."
+    };
+  }
+
+  throw new Error(`Tipo de conciliação inválido para ${getSettlementReference(tx)}.`);
 }
 
 app.post("/api/auth/login", (req, res) => {
@@ -1231,6 +1484,15 @@ app.post("/api/reconciliation/ofx/folder", requireAuth, (req, res) => {
   }
 });
 
+app.get("/api/reconciliation/catalogs", requireAuth, async (_req, res) => {
+  try {
+    const catalogs = await loadReconciliationCatalogsFromNodeApi();
+    return res.json(catalogs);
+  } catch (error) {
+    return res.status(502).json({ message: error.message || "Falha ao consultar catálogos financeiros." });
+  }
+});
+
 app.post("/api/reconciliation/insert", requireAuth, async (req, res) => {
   try {
     const { transactions } = req.body || {};
@@ -1248,6 +1510,69 @@ app.post("/api/reconciliation/insert", requireAuth, async (req, res) => {
     return res.status(201).json({ message: "Transacoes inseridas com sucesso", result });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Erro ao inserir transacoes" });
+  }
+});
+
+app.post("/api/reconciliation/settle", requireAuth, async (req, res) => {
+  try {
+    const transactions = Array.isArray(req.body?.transactions) ? req.body.transactions : [];
+    if (!transactions.length) {
+      return res.status(400).json({ message: "Nenhuma transação selecionada para baixa manual." });
+    }
+
+    const invalid = transactions.find((tx) => !tx?.matched?.entityType || !Array.isArray(tx?.matched?.items) || !tx.matched.items.length);
+    if (invalid) {
+      return res.status(400).json({ message: `Há transações sem match válido para baixa: ${getSettlementReference(invalid)}.` });
+    }
+
+    const config = normalizeSettlementConfig(req.body?.config);
+    const validationErrors = validateSettlementRequest(transactions, config);
+    if (validationErrors.length) {
+      return res.status(400).json({ message: validationErrors.join(" ") });
+    }
+
+    const results = [];
+    for (const tx of transactions) {
+      try {
+        const result = await settleConciliationTransaction(tx, config);
+        results.push(result);
+      } catch (error) {
+        results.push({
+          clientKey: buildConciliationTxKey(tx),
+          entityType: tx?.matched?.entityType || "desconhecido",
+          status: "error",
+          endpoint: tx?.matched?.entityType === "receber" ? "incluirrcm" : tx?.matched?.entityType === "pagar" ? "incluircpm" : "",
+          itemCount: getSettlementItems(tx).length,
+          processedAt: new Date().toISOString(),
+          message: error.message || "Falha ao registrar baixa no TopManager."
+        });
+      }
+    }
+
+    const successCount = results.filter((item) => item.status === "success").length;
+    const failureCount = results.length - successCount;
+    appendAuditLog({
+      actor: resolveActor(req),
+      action: "reconciliation.settle.manual",
+      details: {
+        selected: transactions.length,
+        successCount,
+        failureCount,
+        config
+      }
+    });
+
+    return res.json({
+      message:
+        failureCount === 0
+          ? `Baixa manual concluída para ${successCount} item(ns).`
+          : `Baixa manual processada com ${successCount} sucesso(s) e ${failureCount} erro(s).`,
+      successCount,
+      failureCount,
+      results
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Erro ao processar baixa manual." });
   }
 });
 

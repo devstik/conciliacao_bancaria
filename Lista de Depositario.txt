@@ -1,0 +1,231 @@
+CdDep	NmDep
+118	Caixa - Contas a PG - O
+223	Caixa Cheque - Tesouraria
+224	Caixa Cheques Devolvidos - Tesouraria
+225	BB Agência 3469 Conta 4.130-0
+228	Real Agência 0132 Conta 1.756.787-3
+231	Safra Agência 0159 Conta 1.852-1
+234	Bic Agência 006 Conta 14.100.253-9
+237	Caixa Agência 1887  Conta 03000805-3
+240	Bradesco Agência 0452-9 Conta 84.547-7
+241	Caixa - Fundo Fixo
+242	TITULO DE CAPITALIZAÇÃO
+246	Caixa - Contas a Receber - O
+247	Caixa Cheque - Contas a Receber
+252	LN Factoring
+253	Safra Agência 0159 Conta 2.559-5
+256	Itaú Agência 366 Conta 676054
+257	Itaú Agência 366 Conta 849644
+262	Santander Agência 3132 Conta 130004841
+263	Bic Agência 006 Conta 44.100.254-7
+264	Itau CDB  Agencia 366 c/c 84964-4
+265	Safra CDB Agencia 159 Conta 002 559-5
+266	Caixa - LDR
+267	Caixa - DR
+268	Itaú Agência 366 Conta 463065
+271	Caixa Repasse
+273	Caixa Dotação
+275	Caixa Unificado
+279	HSBC Agência 905 conta corrente 02825-18
+282	Bradesco CDB Agencia 452 C/C 84547-1
+283	Santander CDB Agencia 3132 C/C 1300048
+284	CEF Agencia 1887 C/C 1378-2
+286	Safra Agência 0159 Conta 200895
+287	Safra Agência 037  Conta 33724-7
+288	Safra Agência 037  Conta 201657-0
+289	Itaú Agência 366 Conta 489409
+290	Caixa Agência 1887  Conta 00001378-2
+291	Brasil CDB Agencia 3469-X Conta 4130-0
+292	Itaú Agência 366 Conta 522514
+293	Santander Agência 3132 Conta 29000905-8
+294	Santander Agência 3132 Conta 29000917-5
+295	Santander Agência 3132 Conta 29001012-0
+296	Itaú Agência 366 Conta 523371
+297	Itaú Agência 366 Conta 498731 COMPROR HOT
+298	Itaú Agência 366 Conta 497584
+299	Santander Agência 3132 Conta 290011884
+302	Banco Dotação
+303	Safra Agência 037  Conta P201657-0
+304	Caixa Forncedor
+305	Safra Agência 037  Conta 33724-7 - CDB
+306	Safra Agência 037  Conta 335261
+307	Safra Agência 037  Conta 336542 - CDB
+308	Safra Agência 037  Conta 336844 - CDB
+309	Safra Agência 037  Conta 329783 - CDB
+310	Safra Agência 037  Conta 337077- CDB
+311	Safra Agência 037  Conta 336992- CDB
+312	Santander Agência 3132 Conta 2900000042
+314	Safra Agência 037  Conta 33723-9 - CDB
+315	Safra Agência 037  Conta 33686-1 - CDB
+316	Safra Agência 037  Conta 33500-7 - CDB
+317	Safra Agência 037  Conta 33441-8 - CDB
+318	Safra Agência 037  Conta 33674-7 - CDB
+319	CEF Agencia 1887 C/C 805-3 - CDB
+320	Safra Agência 037  Conta 335996- CDB
+321	Caixa Rec Não Identificado.
+322	Safra Agência 037  Conta 337018- CDB
+323	HSBC Agência 905 conta corrente 02825-18 - V
+324	Santander Agência 3132 Conta 290012270
+325	Santander Agência 3132 Conta 29001226-3
+326	Safra Agência 037  Conta 336224
+327	Safra Agência 037  Conta 1313317
+328	Multi 7 Factoring - D
+329	Safra Agência 037  Conta 29001227-0
+330	Safra Agência 037  Conta 335601
+334	Safra Agência 037  Conta 334698- CDB
+335	Safra Agência 037  Conta 335848- CDB
+336	Multisete
+337	Safra Agência 037  Conta 335431- CDB
+338	Safra Agência 037  Conta 336259- CDB
+339	Safra Agência 037  Conta 336348- CDB
+340	Safra Agência 037  Conta 333161- CDB
+342	Santander - Garantia
+343	Maximiza - D
+344	Bradesco Agência 0452-9 Conta 84.547-7 P
+345	Alfa - D
+346	Santander Agência 3132 Conta 13007758-6
+347	Santander Agência 3132 Conta 29001275-1
+348	Santander Agência 3132 Conta 13007758-6 - CDB
+349	Bradesco Agência 2367 Conta 0001016-2
+350	Bradesco Agência 2367 Conta 0001016-2/9
+351	Bradesco Agência 2367 Conta 5001016-3/2
+352	Bradesco CDB Agencia 02367 C/C 0001016-2  CDB
+353	Bradesco Agência 2367 Conta 1201-7
+354	Caixa Cheque Contas a Receber - D
+355	Caixa Cheque Contas a Receber  - O
+356	Caixa Cheque Contas a Pagar - D
+357	Caixa Cheque Contas a Pagar - O
+358	Caixa Contas a Pagar- D
+359	Caixa Contas a Receber- D
+363	Itaú Agência 7412 Conta 37030-1
+364	Itaú Agência 7412 Conta 37030-1 CDB
+365	Banco do Brasil 3469-x  C/c: 4130-0 CDB
+366	BB AG 3469-X  C/c: 4130-0   CDB
+367	Cvpar
+369	BB Agência 1702 Conta 104130-4
+370	Banco do Brasil Ag: 1702-7 Conta 104130-4- CDB
+371	Santander Agência 3132 Conta 29001294-0
+372	Caixa Cartao
+373	Adicional Fidc
+374	FINIMP
+377	Daycoval Agência 00019 Conta 8051463
+379	Santander Agência 3132 Conta 290013116
+380	Daycoval Agência 00019 Conta 7202549
+381	Itaú Agência 0366 Conta 94565-7
+382	RED Asset Fidc
+383	Firma Securitizadora
+384	Credit Brasil
+385	Caixa Cheque NR
+386	Bradesco Agência 895  Conta 134032-8
+387	Caixa Agência 1887 Conta 00000805-3 CDB
+388	CDP Capital
+389	Itaú Agência 2639 Conta 01188-7
+390	Santander Agência 3132 Conta 290009058
+391	Bradesco Agência 2367 Conta P1016-2
+392	Santander Agência 3132 Conta 29090090-4
+393	Numerarios
+394	Finimp BB
+395	Finimp Santander
+396	Finimp Itau
+397	3F Fomento
+398	Santander- Desconto
+401	Santander- Desconto
+402	Conta Garantia
+404	Caixa Felipe-Baixas
+405	Caixa- Negociação
+408	Sofisa  Agência 132 Conta: 0000005591
+409	Sofisa  Agência 132 Conta :0000005605
+411	Safra Agência 0159 Conta 4391-7
+414	Banco Sicredi 2301/29762-3
+415	Grifo Capital
+416	Sofisa 132 Conta 0000005605- CDB
+417	Banco Sicredi 2301/32610-0
+418	Aporte de Capital
+419	Aporte de Capital - SICRED
+420	Itaú Agencia 2639 Conta 15241-8
+421	Cartão de Crédito
+422	Bradesco Vida e Previdencia
+423	Itau Agencia 0366 Conta 849644- TRUST
+424	Safra Agência 0159 Conta P4391-7
+425	Caixa Agência 4249  Conta 00900805-5
+426	Caixa Unificado
+427	Titulo de Capitalização - Bradesco
+428	Sicredi Evolution- Aplicação
+429	Sofisa 132 Conta 0000005591- Aplicação
+430	Bradesco CDB Plus
+431	Caixa FP
+432	Sofisa Agencia 132 Conta: 0000005591 - Aplicação
+433	BB Agência 1702 Conta 104130-4 V
+434	Itau Agencia 0366 Contas 84964-4 - JGP MAX
+435	Caixa- Substituição Cheque
+437	BB Agência 2937-8 Conta 104130-4
+438	BB Agência 2937-8 Conta 104130-4 - CDB
+439	Caixa Agência 4249 Conta 00000388-3
+440	Caixa Vida e Previdencia
+441	Cheque Devolvido em Trânsito
+442	BB Agência 2937-8 Conta: 104130-4 V.
+444	Santander CDB - 333132260051028610
+446	Finimp Safra
+447	Consórcio Banco do Brasil
+448	RDC Sicredi
+449	Titulo de Capitalização - Santander
+450	Agrega
+451	Consórcio Caixa Econômica Federal
+452	Título de Capitalização BB
+453	Itaú Agência 2639 Conta 34274-6 Conta Garantida
+454	Cixa Cartão
+455	Finame
+456	Santander Agência 3132 Conta 290019325
+459	Banco C6 SA Agência 001 Conta 252041062
+460	Santander Agência 3132 Conta 290019370
+461	Banco C6 SA Agência 001 Conta 252041062- V
+462	Premiun Recebíveis
+463	Bloqueio Judicial
+464	Santander Agência 3132 Conta 290019648
+465	Consórcio Santander
+466	Safra Agência 0159 Conta 201961-4
+467	Daycoval Agência 00019 Conta 8051463 Conciliação
+468	BB Previdência
+469	Caixa Agência 4249 Conta 00000388-3 Conciliação
+470	Santander Agência 3132 Conta 290019820
+471	Safra Agência 0159 Conta 201961-4 Conciliação
+472	Safra Agência 0159 Conta 2008957 - Conciliação
+473	Santander Agência 3132 Conta 290019978
+474	Banco C6 SA Agência 001 Conta 252041062- Conciliaç
+475	Banco Sicredi 2301/32610-0 Conciliação
+476	Santander Agência 3132 Conta 290020291
+477	Santander Agência 3132 Conta 290020624
+478	Santander Agc 3132 Ct 130004841 Conciliação
+480	Banco do Nordeste Agência 0016 Conta: 221067-3
+481	Santander Agência 3132 Conta 290020851
+482	Santander Agência 3132 Conta 290020930
+487	Banco ABC Agência 0019 Conta 0023077656
+488	Banco ABC Agência 0019 Conta 0023077664
+489	Santander Agência 3132 Conta 290020992
+490	Banco C6 SA Agência 001 Conta 26086638
+491	ABC Compromissada
+492	Itaú Compromissada
+493	C6 Compromissada
+494	Banco ABC Agência 0019 Conta 0023077664 (Con)
+495	C6 CDB
+500	Safra 0159 Conta: 4391-7 CDB
+501	Itaú Agência 2639 Conta 97963-8 Felipe
+502	Banco ABC- CDB PósALT
+505	BNB
+506	Banco do Nordeste do B. Ag: 016 Conta: 224854-9
+507	Banco do Nordeste do B. Ag: 016 Conta: 224852-2 Z
+508	Santander Compromissada
+509	Bradesco- Corretora Ágora
+510	BB- SACADO
+511	Safra compromissada
+512	Daycoval - Conta garantida
+513	Banco ABC - CHEQUE ESPECIAL
+514	Santander Agência 3132 Conta 290022602
+519	Multiplike Securitizadora SA
+523	Multiplike Conciliação
+525	Banco Sifra S/A
+526	Sofisa 132 Conta 0000005591 - RENDA FIXA
+527	Multiplike CDB
+528	Santander - Contamax Empresarial
+529	Bradesco Ágora - LF FLU LF0026004FR
+530	Bradesco Ágora - CDB FLU CDB2255OAZ4

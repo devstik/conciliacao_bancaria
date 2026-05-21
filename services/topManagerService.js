@@ -1,4 +1,5 @@
-const DEFAULT_AUTH_URL = "https://visions.topmanager.com.br/auth/api/usuarios/entrar";
+const DEFAULT_AUTH_URL =
+  "https://visions.topmanager.com.br/auth/api/usuarios/entrar?identificadorDaAplicacao=Financeiro&chaveDaAplicacaoExterna=oZ3k39BXUsWVAPIzTPkjsbrnpzg34RKNnIvCr2DguTQCtI9tc6zQRYYDmruTg1oO8kpEr1qxJI2wCb3zf9czvA%3D%3D&enderecoDeRetorno=http%3A%2F%2Fqualquer";
 const DEFAULT_API_BASE = "https://visions.topmanager.com.br/Servidor_2.8.0_api";
 
 class TopManagerService {
@@ -14,9 +15,9 @@ class TopManagerService {
     this.maxAuthRetries = Number(process.env.TOPMANAGER_AUTH_RETRIES || 3);
     this.authRetryBaseMs = Number(process.env.TOPMANAGER_AUTH_RETRY_BASE_MS || 400);
     this.currentCredentials = {
-      email: process.env.TOPMANAGER_EMAIL || "",
-      senha: process.env.TOPMANAGER_SENHA || "",
-      usuarioID: Number(process.env.TOPMANAGER_USUARIO_ID || "0")
+      email: process.env.TOPMANAGER_EMAIL || "suporte.financeiro",
+      senha: process.env.TOPMANAGER_SENHA || "123456",
+      usuarioID: Number(process.env.TOPMANAGER_USUARIO_ID || "21960")
     };
   }
 
@@ -139,22 +140,23 @@ class TopManagerService {
     return url;
   }
 
-  async get(pathname, query, { retryOnUnauthorized = true, forceRefresh = false } = {}) {
+  async _request(method, pathname, { query, body, retryOnUnauthorized = true, forceRefresh = false } = {}) {
     const token = await this.getToken({ forceRefresh });
     const url = this._buildApiUrl(pathname, query);
-    console.log("[TopManager][GET] Consultando recurso remoto.");
+    console.log(`[TopManager][${method}] Consultando recurso remoto.`);
 
     const response = await fetch(url, {
-      method: "GET",
+      method,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`
-      }
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {})
     });
 
     if (response.status === 401 && retryOnUnauthorized) {
       await this.getToken({ forceRefresh: true });
-      return this.get(pathname, query, { retryOnUnauthorized: false, forceRefresh: false });
+      return this._request(method, pathname, { query, body, retryOnUnauthorized: false, forceRefresh: false });
     }
 
     const rawBody = await response.text();
@@ -172,6 +174,14 @@ class TopManagerService {
         payload: rawBody
       };
     }
+  }
+
+  async get(pathname, query, options = {}) {
+    return this._request("GET", pathname, { query, ...options });
+  }
+
+  async post(pathname, body, options = {}) {
+    return this._request("POST", pathname, { body, ...options });
   }
 }
 

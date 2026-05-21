@@ -1,0 +1,12 @@
+CdMpg	NmMpg
+1	Dinheiro
+2	Cheque
+3	Crédito em Conta
+4	Débito em Conta
+6	Ted
+8	Transferência
+11	Gerenciador
+12	Depósito em Conta
+13	Cartao
+14	Pix
+15	Arquivo
