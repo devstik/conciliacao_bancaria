@@ -549,8 +549,7 @@ function applySidebarState() {
 
   const logoutBtn = byId("logout-btn");
   if (logoutBtn) {
-    logoutBtn.textContent = "Logoff";
-    logoutBtn.title = "Logoff";
+    logoutBtn.title = "Sair";
   }
 
   const mobileMenuBtn = byId("mobile-menu-btn");
