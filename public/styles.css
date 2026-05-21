@@ -124,15 +124,18 @@ body {
   flex-shrink: 0;
 }
 
-.login-field input {
+.login-field input,
+.login-field input[type="text"],
+.login-field input[type="password"] {
   width: 100%;
-  border: 0;
-  border-radius: 28px;
-  padding: 0 24px 0 48px;
-  height: 56px;
-  font-size: 14px;
-  background: rgba(255, 255, 255, 0.55);
-  color: #0f172a;
+  border: 0 !important;
+  border-radius: 28px !important;
+  padding: 0 24px 0 48px !important;
+  height: 56px !important;
+  font-size: 14px !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  color: #0f172a !important;
+  box-shadow: none !important;
   transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -140,10 +143,12 @@ body {
   color: rgba(100, 116, 139, 0.60);
 }
 
-.login-field input:focus {
-  outline: none;
-  background: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 0 0 2px rgba(1, 69, 242, 0.22);
+.login-field input:focus,
+.login-field input[type="text"]:focus,
+.login-field input[type="password"]:focus {
+  outline: none !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 0 0 2px rgba(1, 69, 242, 0.22) !important;
 }
 
 .login-card button {
