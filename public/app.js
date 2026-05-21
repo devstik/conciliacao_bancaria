@@ -1867,39 +1867,45 @@ function buildFichaClienteSkeleton() {
 
 function buildFichaScrollView(rows) {
   return `
-    <div class="table-scroll">
-      <table>
-        <thead><tr>
-          <th>ID</th><th>Data</th><th>Tipo</th><th>Vendedor</th>
-          <th>Razão Social</th><th>Nome Fantasia</th><th>CNPJ/CPF</th>
-          <th>Status</th><th>Contato</th><th>E-mail</th><th>Anx.</th><th>Ações</th>
-        </tr></thead>
-        <tbody>
-          ${rows
-            .map((row) => {
-              const status = row.statusAnalise || "pendente";
-              const isFinal = ["aprovada", "reprovada", "aprovada_com_ressalvas"].includes(status);
-              const actionStyle = isFinal
-                ? "background:#f1f5f9;border-color:#d1dce8;color:#475569;"
-                : "background:#0145F2;border-color:#0145F2;color:#ffffff;";
-              return `<tr>
-                <td>${row.id}</td>
-                <td>${parseDate(row.data)}</td>
-                <td>${escapeHtml(row.tipo || "-")}</td>
-                <td>${escapeHtml(row.vendedor || "-")}</td>
-                <td>${escapeHtml(row.razaoSocial || "-")}</td>
-                <td>${escapeHtml(row.nomeFantasia || "-")}</td>
-                <td>${escapeHtml(row.cnpJouCPF || "-")}</td>
-                <td><span style="display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:0.03em;text-transform:uppercase;white-space:nowrap;${FICHA_STATUS_STYLE[status] || FICHA_STATUS_STYLE.pendente}">${escapeHtml(FICHA_STATUS_LABELS[status] || "Pendente")}</span></td>
-                <td>${escapeHtml([row.contatoNome, row.contatoTelefone].filter(Boolean).join(" / ") || "-")}</td>
-                <td>${escapeHtml(row.emailCliente || "-")}</td>
-                <td>${row.arquivosAnexados.length}</td>
-                <td><button class="ghost-btn ficha-open-btn" data-id="${row.id}" style="border-radius:12px;padding:8px 14px;font-weight:800;${actionStyle}">${isFinal ? "Ver resultado" : "Analisar"}</button></td>
-              </tr>`;
-            })
-            .join("")}
-        </tbody>
-      </table>
+    <div class="fc-accordion">
+      ${rows
+        .map((row) => {
+          const status = row.statusAnalise || "pendente";
+          const isFinal = ["aprovada", "reprovada", "aprovada_com_ressalvas"].includes(status);
+          const actionStyle = isFinal
+            ? "background:#f1f5f9;border-color:#d1dce8;color:#475569;"
+            : "background:#0145F2;border-color:#0145F2;color:#ffffff;";
+          const contact = [row.contatoNome, row.contatoTelefone].filter(Boolean).join(" / ") || "-";
+          const sub = [row.vendedor, row.tipo, parseDate(row.data)].filter(Boolean).join(" · ");
+          return `
+          <div class="fc-acc-item" data-id="${row.id}">
+            <div class="fc-acc-head">
+              <div class="fc-acc-info">
+                <span class="fc-acc-name">${escapeHtml(row.razaoSocial || row.nomeFantasia || "-")}</span>
+                <span class="fc-acc-sub">${escapeHtml(sub)}</span>
+              </div>
+              <span style="display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:0.03em;text-transform:uppercase;white-space:nowrap;flex-shrink:0;${FICHA_STATUS_STYLE[status] || FICHA_STATUS_STYLE.pendente}">${escapeHtml(FICHA_STATUS_LABELS[status] || "Pendente")}</span>
+              <svg class="fc-acc-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="fc-acc-body">
+              <div class="fc-acc-grid">
+                <div class="fc-acc-field"><small>ID</small><strong>${row.id}</strong></div>
+                <div class="fc-acc-field"><small>Data</small><strong>${parseDate(row.data)}</strong></div>
+                <div class="fc-acc-field"><small>Tipo</small><strong>${escapeHtml(row.tipo || "-")}</strong></div>
+                <div class="fc-acc-field"><small>Vendedor</small><strong>${escapeHtml(row.vendedor || "-")}</strong></div>
+                <div class="fc-acc-field"><small>Nome Fantasia</small><strong>${escapeHtml(row.nomeFantasia || "-")}</strong></div>
+                <div class="fc-acc-field"><small>CNPJ/CPF</small><strong>${escapeHtml(row.cnpJouCPF || "-")}</strong></div>
+                <div class="fc-acc-field"><small>Contato</small><strong>${escapeHtml(contact)}</strong></div>
+                <div class="fc-acc-field"><small>E-mail</small><strong>${escapeHtml(row.emailCliente || "-")}</strong></div>
+                <div class="fc-acc-field"><small>Anexos</small><strong>${row.arquivosAnexados.length}</strong></div>
+              </div>
+              <button class="ghost-btn ficha-open-btn" data-id="${row.id}" style="border-radius:12px;padding:8px 18px;font-weight:800;${actionStyle}">${isFinal ? "Ver resultado" : "Analisar"}</button>
+            </div>
+          </div>`;
+        })
+        .join("")}
     </div>
   `;
 }
@@ -2244,6 +2250,15 @@ function renderFichaCliente() {
       renderFichaCliente();
     });
   });
+
+  const accordion = document.querySelector(".fc-accordion");
+  if (accordion) {
+    accordion.addEventListener("click", (e) => {
+      const head = e.target.closest(".fc-acc-head");
+      if (!head) return;
+      head.closest(".fc-acc-item").classList.toggle("open");
+    });
+  }
 
   byId("ficha-search").addEventListener("input", (e) => {
     state.fichaClienteFilter.search = e.target.value;
