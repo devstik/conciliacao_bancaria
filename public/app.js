@@ -22,6 +22,8 @@ const state = {
     vendedorId: "",
     limit: "50"
   },
+  fichaClienteView: "scroll",
+  fichaClienteLoading: false,
   receberFilter: getDefaultReceberFilter(),
   pagarFilter: getDefaultDateRange(),
   conciliationBankFilter: "ALL",
@@ -296,10 +298,6 @@ function computeNotifications() {
   const saldoPrevisto = state.overviewReceber.reduce((s, r) => s + r.valor, 0) - state.overviewPagar.reduce((s, r) => s + r.valor, 0);
   if (saldoPrevisto < 0) notifications.push({ level: "bad", text: `Fluxo projetado negativo: ${currency.format(saldoPrevisto)}.` });
   state.notifications = notifications.slice(0, 8);
-  const btn = byId("notifications-btn");
-  if (btn) {
-    btn.textContent = state.notifications.length ? `N${state.notifications.length}` : "N";
-  }
 }
 
 function renderNotificationsPanel() {
@@ -1831,77 +1829,141 @@ function exportConciliation(format) {
   }
 }
 
-function buildFichaClienteTable(rows) {
-  if (!rows.length) {
-    return "<p>Nenhuma ficha encontrada.</p>";
-  }
+const FICHA_STATUS_LABELS = {
+  pendente: "Pendente",
+  em_analise: "Em análise",
+  aprovada: "Aprovada",
+  reprovada: "Reprovada",
+  aprovada_com_ressalvas: "Aprovada c/ ressalvas"
+};
+const FICHA_STATUS_STYLE = {
+  pendente: "background:#f1f5f9;border:1px solid #d1dce8;color:#64748b;",
+  em_analise: "background:rgba(1,69,242,0.10);border:1px solid rgba(1,69,242,0.22);color:#0145F2;",
+  aprovada: "background:rgba(22,163,74,0.10);border:1px solid rgba(22,163,74,0.22);color:#16a34a;",
+  reprovada: "background:rgba(220,38,38,0.10);border:1px solid rgba(220,38,38,0.22);color:#dc2626;",
+  aprovada_com_ressalvas: "background:rgba(217,119,6,0.10);border:1px solid rgba(217,119,6,0.22);color:#d97706;"
+};
 
+function buildFichaClienteSkeleton() {
+  return `
+    <div class="fc-skeleton">
+      ${[0, 1, 2, 3, 4, 5]
+        .map(
+          (i) => `
+        <div class="fc-skel-row">
+          <div class="skel skel-icon" style="--delay:${i * 0.07}s"></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:7px;">
+            <div class="skel skel-text" style="width:${140 + (i % 3) * 40}px;--delay:${i * 0.07 + 0.03}s"></div>
+            <div class="skel skel-text" style="width:${80 + (i % 2) * 30}px;--delay:${i * 0.07 + 0.05}s"></div>
+          </div>
+          <div class="skel skel-pill" style="width:${70 + (i % 3) * 15}px;--delay:${i * 0.07 + 0.04}s"></div>
+          <div class="skel skel-text" style="width:64px;--delay:${i * 0.07 + 0.06}s"></div>
+        </div>`
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function buildFichaScrollView(rows) {
   return `
     <div class="table-scroll">
       <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Data</th>
-            <th>Tipo</th>
-            <th>Vendedor</th>
-            <th>Razão Social</th>
-            <th>Nome Fantasia</th>
-            <th>CNPJ/CPF</th>
-            <th>Status Análise</th>
-            <th>Contato</th>
-            <th>E-mail</th>
-            <th>Anexos</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
+        <thead><tr>
+          <th>ID</th><th>Data</th><th>Tipo</th><th>Vendedor</th>
+          <th>Razão Social</th><th>Nome Fantasia</th><th>CNPJ/CPF</th>
+          <th>Status</th><th>Contato</th><th>E-mail</th><th>Anx.</th><th>Ações</th>
+        </tr></thead>
         <tbody>
           ${rows
-            .map(
-              (row) => {
-                const status = row.statusAnalise || "pendente";
-                const isFinal = ["aprovada", "reprovada", "aprovada_com_ressalvas"].includes(status);
-                const statusLabelMap = {
-                  pendente: "Pendente",
-                  em_analise: "Em análise",
-                  aprovada: "Aprovada",
-                  reprovada: "Reprovada",
-                  aprovada_com_ressalvas: "Aprovada com ressalvas"
-                };
-                const statusToneMap = {
-                  pendente: "background:#f1f5f9;border:1px solid #d1dce8;color:#64748b;",
-                  em_analise: "background:rgba(1,69,242,0.10);border:1px solid rgba(1,69,242,0.22);color:#0145F2;",
-                  aprovada: "background:rgba(22,163,74,0.10);border:1px solid rgba(22,163,74,0.22);color:#16a34a;",
-                  reprovada: "background:rgba(220,38,38,0.10);border:1px solid rgba(220,38,38,0.22);color:#dc2626;",
-                  aprovada_com_ressalvas: "background:rgba(217,119,6,0.10);border:1px solid rgba(217,119,6,0.22);color:#d97706;"
-                };
-                const actionLabel = isFinal ? "Ver resultado" : "Analisar";
-                const actionStyle = isFinal
-                  ? "background:#f1f5f9;border-color:#d1dce8;color:#475569;"
-                  : "background:#0145F2;border-color:#0145F2;color:#ffffff;";
-                return `
-                <tr>
-                  <td>${row.id}</td>
-                  <td>${parseDate(row.data)}</td>
-                  <td>${escapeHtml(row.tipo || "-")}</td>
-                  <td>${escapeHtml(row.vendedor || "-")}</td>
-                  <td>${escapeHtml(row.razaoSocial || "-")}</td>
-                  <td>${escapeHtml(row.nomeFantasia || "-")}</td>
-                  <td>${escapeHtml(row.cnpJouCPF || "-")}</td>
-                  <td><span style="display:inline-flex;align-items:center;padding:7px 10px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:0.03em;text-transform:uppercase;white-space:nowrap;${statusToneMap[status] || statusToneMap.pendente}">${escapeHtml(statusLabelMap[status] || "Pendente")}</span></td>
-                  <td>${escapeHtml([row.contatoNome, row.contatoTelefone].filter(Boolean).join(" / ") || "-")}</td>
-                  <td>${escapeHtml(row.emailCliente || "-")}</td>
-                  <td>${row.arquivosAnexados.length}</td>
-                  <td><button class="ghost-btn ficha-open-btn" data-id="${row.id}" style="border-radius:12px;padding:10px 14px;font-weight:800;${actionStyle}">${actionLabel}</button></td>
-                </tr>
-              `;
-              }
-            )
+            .map((row) => {
+              const status = row.statusAnalise || "pendente";
+              const isFinal = ["aprovada", "reprovada", "aprovada_com_ressalvas"].includes(status);
+              const actionStyle = isFinal
+                ? "background:#f1f5f9;border-color:#d1dce8;color:#475569;"
+                : "background:#0145F2;border-color:#0145F2;color:#ffffff;";
+              return `<tr>
+                <td>${row.id}</td>
+                <td>${parseDate(row.data)}</td>
+                <td>${escapeHtml(row.tipo || "-")}</td>
+                <td>${escapeHtml(row.vendedor || "-")}</td>
+                <td>${escapeHtml(row.razaoSocial || "-")}</td>
+                <td>${escapeHtml(row.nomeFantasia || "-")}</td>
+                <td>${escapeHtml(row.cnpJouCPF || "-")}</td>
+                <td><span style="display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:0.03em;text-transform:uppercase;white-space:nowrap;${FICHA_STATUS_STYLE[status] || FICHA_STATUS_STYLE.pendente}">${escapeHtml(FICHA_STATUS_LABELS[status] || "Pendente")}</span></td>
+                <td>${escapeHtml([row.contatoNome, row.contatoTelefone].filter(Boolean).join(" / ") || "-")}</td>
+                <td>${escapeHtml(row.emailCliente || "-")}</td>
+                <td>${row.arquivosAnexados.length}</td>
+                <td><button class="ghost-btn ficha-open-btn" data-id="${row.id}" style="border-radius:12px;padding:8px 14px;font-weight:800;${actionStyle}">${isFinal ? "Ver resultado" : "Analisar"}</button></td>
+              </tr>`;
+            })
             .join("")}
         </tbody>
       </table>
     </div>
   `;
+}
+
+function buildFichaCardsView(rows) {
+  return `
+    <div class="fc-cards-grid">
+      ${rows
+        .map((row) => {
+          const status = row.statusAnalise || "pendente";
+          return `
+          <div class="fc-card-item ficha-open-btn" data-id="${row.id}" tabindex="0" role="button">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+              <span style="font-size:11px;color:#94a3b8;font-weight:700;">#${row.id}</span>
+              <span style="display:inline-flex;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;${FICHA_STATUS_STYLE[status] || FICHA_STATUS_STYLE.pendente}">${escapeHtml(FICHA_STATUS_LABELS[status] || "Pendente")}</span>
+            </div>
+            <div class="fc-card-name">${escapeHtml(row.razaoSocial || row.nomeFantasia || "-")}</div>
+            <div class="fc-card-sub">${escapeHtml(row.nomeFantasia && row.razaoSocial ? row.nomeFantasia : (row.cnpJouCPF || "-"))}</div>
+            <div class="fc-card-meta">
+              ${row.tipo ? `<span style="padding:3px 9px;border-radius:8px;background:#f1f5f9;border:1px solid #e2eaf0;font-size:11px;color:#475569;">${escapeHtml(row.tipo)}</span>` : ""}
+              ${row.vendedor ? `<small>${escapeHtml(row.vendedor)}</small>` : ""}
+              <small style="margin-left:auto;">${parseDate(row.data)}</small>
+            </div>
+          </div>`;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function buildFichaStackView(rows) {
+  return `
+    <div class="fc-stack">
+      ${rows
+        .map(
+          (row, i) => {
+            const status = row.statusAnalise || "pendente";
+            return `
+          <div class="fc-stack-row ficha-open-btn" data-id="${row.id}" tabindex="0" role="button">
+            <span class="fc-stack-num">${i + 1}</span>
+            <div class="fc-stack-main">
+              <div class="fc-stack-name">${escapeHtml(row.razaoSocial || row.nomeFantasia || "-")}</div>
+              <div class="fc-stack-info">${escapeHtml([row.cnpJouCPF, row.tipo, row.vendedor].filter(Boolean).join(" · ") || "-")}</div>
+            </div>
+            <div class="fc-stack-meta">
+              <span style="font-size:11px;color:#94a3b8;">${parseDate(row.data)}</span>
+              <span style="display:inline-flex;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.03em;white-space:nowrap;${FICHA_STATUS_STYLE[status] || FICHA_STATUS_STYLE.pendente}">${escapeHtml(FICHA_STATUS_LABELS[status] || "Pendente")}</span>
+            </div>
+          </div>`;
+          }
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function buildFichaClienteTable(rows) {
+  if (!rows.length) {
+    return `<p style="padding:24px 0;color:var(--text-soft);">Nenhuma ficha encontrada. Use os filtros acima e clique em Consultar.</p>`;
+  }
+  const view = state.fichaClienteView || "scroll";
+  if (view === "cards") return buildFichaCardsView(rows);
+  if (view === "stack") return buildFichaStackView(rows);
+  return buildFichaScrollView(rows);
 }
 
 function buildFichaClienteDetailSection(title, items) {
@@ -2132,69 +2194,93 @@ function buildFichaClienteDetailPanel(ficha) {
 
 function renderFichaCliente() {
   const filter = state.fichaClienteFilter;
-  const errorBlock = state.fichaClienteError ? `<p style="color:#dc2626;font-weight:600;">${state.fichaClienteError}</p>` : "";
+  const view = state.fichaClienteView || "scroll";
+  const errorBlock = state.fichaClienteError
+    ? `<p style="color:#dc2626;font-weight:600;margin:0 0 14px;">${state.fichaClienteError}</p>`
+    : "";
+
   byId("ficha-cliente-screen").innerHTML = `
     <article class="table-wrap list-full-height">
-      <h3>Ficha de Cliente</h3>
-      <div class="toolbar">
-        <label>Data inicial <input type="date" id="ficha-data-inicial" class="upload-input" value="${filter.dataInicial}" /></label>
-        <label>Data final <input type="date" id="ficha-data-final" class="upload-input" value="${filter.dataFinal}" /></label>
-        <input id="ficha-tipo" class="upload-input" placeholder="Tipo" value="${escapeHtml(filter.tipo)}" />
-        <input id="ficha-vendedor-id" class="upload-input" placeholder="Vendedor ID" value="${escapeHtml(filter.vendedorId)}" />
-        <input id="ficha-search" class="upload-input" placeholder="Buscar razão social, fantasia ou CNPJ/CPF" value="${escapeHtml(filter.search)}" />
-        <select id="ficha-limit" class="upload-input">
-          <option value="20" ${filter.limit === "20" ? "selected" : ""}>20</option>
-          <option value="50" ${filter.limit === "50" ? "selected" : ""}>50</option>
-          <option value="100" ${filter.limit === "100" ? "selected" : ""}>100</option>
-          <option value="200" ${filter.limit === "200" ? "selected" : ""}>200</option>
+      <div class="fc-header">
+        <h3 style="margin:0;">Ficha de Cliente</h3>
+        <div class="fc-mode-switcher">
+          ${[
+            { v: "scroll", label: "Tabela" },
+            { v: "cards", label: "Cards" },
+            { v: "stack", label: "Lista" }
+          ]
+            .map(({ v, label }) => `<button class="fc-view-btn${view === v ? " active" : ""}" data-view="${v}">${label}</button>`)
+            .join("")}
+        </div>
+      </div>
+      <div class="fc-toolbar">
+        <div class="fc-search-wrap">
+          <input id="ficha-search" type="search" placeholder="Buscar razão social, fantasia ou CNPJ/CPF..." value="${escapeHtml(filter.search)}" />
+          <kbd>⌘K</kbd>
+        </div>
+        <input type="date" id="ficha-data-inicial" class="upload-input" style="height:40px;" value="${filter.dataInicial}" title="Data inicial" />
+        <input type="date" id="ficha-data-final" class="upload-input" style="height:40px;" value="${filter.dataFinal}" title="Data final" />
+        <input id="ficha-tipo" class="upload-input" style="height:40px;max-width:120px;" placeholder="Tipo" value="${escapeHtml(filter.tipo)}" />
+        <input id="ficha-vendedor-id" class="upload-input" style="height:40px;max-width:130px;" placeholder="Vendedor ID" value="${escapeHtml(filter.vendedorId)}" />
+        <select id="ficha-limit" class="upload-input" style="height:40px;">
+          ${["20", "50", "100", "200"].map((v) => `<option value="${v}"${filter.limit === v ? " selected" : ""}>${v}</option>`).join("")}
         </select>
-        <button id="ficha-consultar-btn" class="primary-btn">Consultar</button>
+        <button id="ficha-consultar-btn" class="primary-btn" style="height:40px;">Consultar</button>
       </div>
       ${errorBlock}
-      <p><strong>${state.fichaCliente.length}</strong> ficha(s) encontrada(s).</p>
-      ${buildFichaClienteTable(state.fichaCliente)}
+      ${
+        state.fichaClienteLoading
+          ? buildFichaClienteSkeleton()
+          : `<p style="margin:0 0 14px;font-size:13px;color:var(--text-soft);"><strong style="color:var(--text-strong);">${state.fichaCliente.length}</strong> ficha(s) encontrada(s).</p>
+             ${buildFichaClienteTable(state.fichaCliente)}`
+      }
       ${buildFichaClienteDetailPanel(state.fichaClienteSelected)}
     </article>
   `;
 
-  byId("ficha-data-inicial").addEventListener("change", (event) => {
-    state.fichaClienteFilter.dataInicial = event.target.value;
+  document.querySelectorAll(".fc-view-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.fichaClienteView = btn.getAttribute("data-view");
+      renderFichaCliente();
+    });
+  });
+
+  byId("ficha-search").addEventListener("input", (e) => {
+    state.fichaClienteFilter.search = e.target.value;
     savePreferences();
   });
-  byId("ficha-data-final").addEventListener("change", (event) => {
-    state.fichaClienteFilter.dataFinal = event.target.value;
+  byId("ficha-data-inicial").addEventListener("change", (e) => {
+    state.fichaClienteFilter.dataInicial = e.target.value;
     savePreferences();
   });
-  byId("ficha-tipo").addEventListener("input", (event) => {
-    state.fichaClienteFilter.tipo = event.target.value;
+  byId("ficha-data-final").addEventListener("change", (e) => {
+    state.fichaClienteFilter.dataFinal = e.target.value;
     savePreferences();
   });
-  byId("ficha-vendedor-id").addEventListener("input", (event) => {
-    state.fichaClienteFilter.vendedorId = event.target.value;
+  byId("ficha-tipo").addEventListener("input", (e) => {
+    state.fichaClienteFilter.tipo = e.target.value;
     savePreferences();
   });
-  byId("ficha-search").addEventListener("input", (event) => {
-    state.fichaClienteFilter.search = event.target.value;
+  byId("ficha-vendedor-id").addEventListener("input", (e) => {
+    state.fichaClienteFilter.vendedorId = e.target.value;
     savePreferences();
   });
-  byId("ficha-limit").addEventListener("change", (event) => {
-    state.fichaClienteFilter.limit = event.target.value;
+  byId("ficha-limit").addEventListener("change", (e) => {
+    state.fichaClienteFilter.limit = e.target.value;
     savePreferences();
   });
   byId("ficha-consultar-btn").addEventListener("click", () => {
-    loadFichaClienteData(state.fichaClienteFilter).catch((error) => {
-      alert(error.message);
-    });
+    loadFichaClienteData(state.fichaClienteFilter).catch((error) => alert(error.message));
   });
-  document.querySelectorAll(".ficha-open-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      const id = button.getAttribute("data-id");
+
+  document.querySelectorAll(".ficha-open-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-id");
       if (!id) return;
-      loadFichaClienteDetail(id).catch((error) => {
-        alert(error.message);
-      });
+      loadFichaClienteDetail(id).catch((error) => alert(error.message));
     });
   });
+
   if (state.fichaClienteSelected) {
     byId("ficha-close-detail").addEventListener("click", () => {
       state.fichaClienteSelected = null;
@@ -2212,9 +2298,7 @@ function renderFichaCliente() {
             formaPagamento: byId("ficha-analise-forma-pagamento").value,
             prazoEstimado: byId("ficha-analise-prazo-estimado").value
           }
-        }).catch((error) => {
-          alert(error.message);
-        });
+        }).catch((error) => alert(error.message));
       });
     }
   }
@@ -2500,6 +2584,9 @@ async function loadReceberData(filter = state.receberFilter) {
 }
 
 async function loadFichaClienteData(filter = state.fichaClienteFilter) {
+  state.fichaClienteLoading = true;
+  state.fichaClienteError = "";
+  renderFichaCliente();
   try {
     const query = new URLSearchParams({
       dataInicial: filter.dataInicial,
@@ -2519,8 +2606,10 @@ async function loadFichaClienteData(filter = state.fichaClienteFilter) {
       }
     }
     savePreferences();
+    state.fichaClienteLoading = false;
     renderFichaCliente();
   } catch (error) {
+    state.fichaClienteLoading = false;
     state.fichaClienteError = error.message;
     state.fichaCliente = [];
     renderFichaCliente();
@@ -2623,41 +2712,6 @@ function bindEvents() {
     } catch (error) {
       byId("login-message").textContent = error.message;
     }
-  });
-
-  byId("refresh-btn").addEventListener("click", async () => {
-    try {
-      if (state.activeScreen === "receber") {
-        await loadReceberData(state.receberFilter);
-        return;
-      }
-      if (state.activeScreen === "pagar") {
-        await loadPagarData();
-        return;
-      }
-      if (state.activeScreen === "overview") {
-        await loadOverviewData(state.overviewFilter);
-        return;
-      }
-      if (state.activeScreen === "conciliacao") {
-        const confirmed = window.confirm("Deseja realmente limpar a tela de Conciliação e o acumulado?");
-        if (!confirmed) return;
-        await clearAccumulatedOfxRemote();
-        state.ofxResult = null;
-        state.selectedConciliationKeys = new Set();
-        state.conciliationBankFilter = "ALL";
-        await loadReconciliationJobs();
-        renderConciliacao();
-        return;
-      }
-      await setActiveScreen(state.activeScreen);
-    } catch (error) {
-      alert(error.message);
-    }
-  });
-
-  byId("notifications-btn").addEventListener("click", () => {
-    toggleNotifications();
   });
 
   byId("logout-btn").addEventListener("click", () => {
