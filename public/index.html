@@ -11,22 +11,28 @@
   </head>
   <body>
     <div id="login-view" class="login-shell">
-      <form id="login-form" class="login-card">
-        <div style="width:88px;height:88px;border-radius:50%;background:#0145F2;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:800;color:#fff;margin:0 auto 12px;flex-shrink:0;">$</div>
-        <h2 style="margin:0 0 10px;font-size:22px;font-weight:700;color:#0f172a;text-align:center;width:100%;">Bem-vindo de volta!</h2>
+      <form id="login-form" class="lc-card">
+        <div class="lc-logo">$</div>
+        <p class="lc-title">Bem-vindo de volta!</p>
 
-        <div class="login-field">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="login-field-icon"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" stroke="currentColor" stroke-width="1.8"/><path d="M2 6l10 7 10-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <input id="usuario" type="text" placeholder="Usuário" autocomplete="username" required />
+        <div class="lc-field">
+          <svg class="lc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M2 6l10 7 10-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <input class="lc-input" id="usuario" type="text" placeholder="Usuário" autocomplete="username" required />
         </div>
 
-        <div class="login-field">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="login-field-icon"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <input id="senha" type="password" placeholder="Senha" autocomplete="current-password" required />
+        <div class="lc-field">
+          <svg class="lc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <input class="lc-input" id="senha" type="password" placeholder="Senha" autocomplete="current-password" required />
         </div>
 
-        <button type="submit">Entrar</button>
-        <small id="login-message"></small>
+        <button class="lc-btn" type="submit">Entrar</button>
+        <small id="login-message" class="lc-msg"></small>
       </form>
     </div>
 
