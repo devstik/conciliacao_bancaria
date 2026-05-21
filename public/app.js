@@ -242,7 +242,8 @@ function maybeRestoreSession() {
     state.token = parsed.token;
     state.tokenExpiresAt = parsed.tokenExpiresAt || null;
     state.user = parsed.user;
-    byId("user-name").textContent = state.user.usuario || state.user.nome || "usuario";
+    byId("user-name").textContent = state.user.nome || state.user.usuario || "usuario";
+    byId("user-avatar").textContent = (state.user.nome || state.user.usuario || "U")[0].toUpperCase();
     loadPreferences();
     return true;
   } catch (_error) {
@@ -2333,7 +2334,8 @@ async function login(usuario, senha) {
   state.token = data.tokenPreview;
   state.tokenExpiresAt = data.expiresAt || null;
   state.user = data.user;
-  byId("user-name").textContent = data.user.usuario || data.user.nome || "usuario";
+  byId("user-name").textContent = data.user.nome || data.user.usuario || "usuario";
+  byId("user-avatar").textContent = (data.user.nome || data.user.usuario || "U")[0].toUpperCase();
   loadPreferences();
   state.receberError = "";
   state.pagarError = "";
