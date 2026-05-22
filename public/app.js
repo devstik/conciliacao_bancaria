@@ -663,6 +663,30 @@ function downloadFile(filename, content, mime) {
   URL.revokeObjectURL(url);
 }
 
+async function downloadAnexo(assetPath, nome) {
+  try {
+    await ensureSessionFresh();
+    const response = await fetch(`/api/ficha-cliente/anexo?path=${encodeURIComponent(assetPath)}`, {
+      headers: state.token ? { Authorization: `Bearer ${state.token}` } : {}
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || "Erro ao baixar arquivo.");
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nome || assetPath.split("/").pop();
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
 function toCsv(rows, columns) {
   const header = columns.map((c) => c.label).join(";");
   const lines = rows.map((row) =>
@@ -1813,7 +1837,7 @@ function buildFichaClienteDetailPanel(ficha) {
                         <strong style="display:block;word-break:break-word;">${escapeHtml(item.nome || "Anexo")}</strong>
                         ${item.assetPath ? `<div style="color:var(--text-soft);font-size:11px;word-break:break-all;margin-top:2px;">${escapeHtml(item.assetPath)}</div>` : ""}
                       </div>
-                      ${item.assetPath ? `<a href="/api/ficha-cliente/anexo?path=${encodeURIComponent(item.assetPath)}" download style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;background:#0145F2;color:#fff;font-size:12px;font-weight:700;text-decoration:none;">&#8595; Baixar</a>` : ""}
+                      ${item.assetPath ? `<button onclick="downloadAnexo(${JSON.stringify(item.assetPath)},${JSON.stringify(item.nome||'anexo')})" style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;background:#0145F2;color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;">&#8595; Baixar</button>` : ""}
                     </div>
                   `
                 )

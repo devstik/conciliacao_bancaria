@@ -1352,7 +1352,6 @@ app.patch("/api/ficha-cliente/:id/analise", requireAuth, async (req, res) => {
       body: {
         statusAnalise: req.body?.statusAnalise,
         observacaoAnalise: req.body?.observacaoAnalise,
-        analisadoPor: resolveActor(req),
         pagamentoAnalise: {
           valorPedido: req.body?.pagamentoAnalise?.valorPedido,
           formaPagamento: req.body?.pagamentoAnalise?.formaPagamento,
