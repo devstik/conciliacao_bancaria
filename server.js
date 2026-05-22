@@ -1305,7 +1305,8 @@ app.get("/api/ficha-cliente/anexo", requireAuth, async (req, res) => {
     const contentDisposition = upstream.headers.get("content-disposition") || `attachment; filename="${path.basename(assetPath)}"`;
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Disposition", contentDisposition);
-    upstream.body.pipe(res);
+    const buffer = await upstream.arrayBuffer();
+    res.end(Buffer.from(buffer));
   } catch (error) {
     return res.status(502).json({ message: error.message || "Falha ao baixar anexo." });
   }
@@ -1351,7 +1352,7 @@ app.patch("/api/ficha-cliente/:id/analise", requireAuth, async (req, res) => {
       body: {
         statusAnalise: req.body?.statusAnalise,
         observacaoAnalise: req.body?.observacaoAnalise,
-        analisadoPor: getAuthUser(req),
+        analisadoPor: resolveActor(req),
         pagamentoAnalise: {
           valorPedido: req.body?.pagamentoAnalise?.valorPedido,
           formaPagamento: req.body?.pagamentoAnalise?.formaPagamento,
