@@ -1808,9 +1808,12 @@ function buildFichaClienteDetailPanel(ficha) {
             ? `<div style="display:grid;gap:8px;">${anexos
                 .map(
                   (item) => `
-                    <div style="padding:14px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;">
-                      <strong>${escapeHtml(item.nome || "Anexo")}</strong>
-                      <div style="color:var(--text-soft);font-size:12px;">${escapeHtml(item.assetPath || "")}</div>
+                    <div style="padding:14px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                      <div style="min-width:0;">
+                        <strong style="display:block;word-break:break-word;">${escapeHtml(item.nome || "Anexo")}</strong>
+                        ${item.assetPath ? `<div style="color:var(--text-soft);font-size:11px;word-break:break-all;margin-top:2px;">${escapeHtml(item.assetPath)}</div>` : ""}
+                      </div>
+                      ${item.assetPath ? `<a href="/api/ficha-cliente/anexo?path=${encodeURIComponent(item.assetPath)}" download style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;background:#0145F2;color:#fff;font-size:12px;font-weight:700;text-decoration:none;">&#8595; Baixar</a>` : ""}
                     </div>
                   `
                 )

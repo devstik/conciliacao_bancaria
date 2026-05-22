@@ -1345,6 +1345,28 @@ app.patch("/api/ficha-cliente/:id/analise", requireAuth, async (req, res) => {
   }
 });
 
+app.get("/api/ficha-cliente/anexo", requireAuth, async (req, res) => {
+  const assetPath = req.query.path;
+  if (!assetPath || typeof assetPath !== "string" || !assetPath.startsWith("/")) {
+    return res.status(400).json({ message: "Caminho inválido." });
+  }
+  try {
+    const token = await getNodeApiToken();
+    const url = `${NODE_API_BASE_URL}${assetPath}`;
+    const upstream = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ message: "Arquivo não encontrado na API." });
+    }
+    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
+    const contentDisposition = upstream.headers.get("content-disposition") || `attachment; filename="${path.basename(assetPath)}"`;
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", contentDisposition);
+    upstream.body.pipe(res);
+  } catch (error) {
+    return res.status(502).json({ message: error.message || "Falha ao baixar anexo." });
+  }
+});
+
 app.get("/api/checkins", requireAuth, async (req, res) => {
   try {
     const query = {};
