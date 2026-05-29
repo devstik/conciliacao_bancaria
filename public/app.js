@@ -271,8 +271,8 @@ function renderNotificationsPanel() {
       <h3>Notificações</h3>
       ${
         state.notifications.length
-          ? `<div class="notification-list">${state.notifications
-              .map((n) => `<p><span class="tag ${n.level === "bad" ? "bad" : n.level === "warn" ? "warn" : "ok"}">${escapeHtml(n.level)}</span> ${escapeHtml(n.text)}</p>`)
+          ?`<div class="notification-list">${state.notifications
+              .map((n) => `<p><span class="tag ${n.level === "bad" ?"bad" : n.level === "warn" ?"warn" : "ok"}">${escapeHtml(n.level)}</span> ${escapeHtml(n.text)}</p>`)
               .join("")}</div>`
           : "<p>Sem notificações no momento.</p>"
       }
@@ -324,7 +324,7 @@ function getTodayYmd() {
 function getCurrentWeekRange() {
   const now = new Date();
   const day = now.getDay();
-  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const mondayOffset = day === 0 ?-6 : 1 - day;
   const weekStart = new Date(now);
   weekStart.setHours(0, 0, 0, 0);
   weekStart.setDate(now.getDate() + mondayOffset);
@@ -389,7 +389,7 @@ function toNumber(value) {
   if (typeof value === "string") {
     const normalized = value.replace(/\./g, "").replace(",", ".");
     const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? parsed : 0;
+    return Number.isFinite(parsed) ?parsed : 0;
   }
   return 0;
 }
@@ -446,17 +446,17 @@ function mapFichaClienteRow(row, index) {
     contatoTelefone: pick(row, ["contatoTelefone"], row?.contato?.telefone || ""),
     emailCliente: pick(row, ["emailCliente"], row?.emails?.cliente || ""),
     parecer: pick(row, ["parecer"], ""),
-    endereco: row?.endereco && typeof row.endereco === "object" ? row.endereco : {},
-    contato: row?.contato && typeof row.contato === "object" ? row.contato : {},
-    emails: row?.emails && typeof row.emails === "object" ? row.emails : {},
-    referenciasComerciais: row?.referenciasComerciais && typeof row.referenciasComerciais === "object" ? row.referenciasComerciais : {},
-    pagamento: row?.pagamento && typeof row.pagamento === "object" ? row.pagamento : {},
-    pagamentoAnalise: row?.pagamentoAnalise && typeof row.pagamentoAnalise === "object" ? row.pagamentoAnalise : {},
+    endereco: row?.endereco && typeof row.endereco === "object" ?row.endereco : {},
+    contato: row?.contato && typeof row.contato === "object" ?row.contato : {},
+    emails: row?.emails && typeof row.emails === "object" ?row.emails : {},
+    referenciasComerciais: row?.referenciasComerciais && typeof row.referenciasComerciais === "object" ?row.referenciasComerciais : {},
+    pagamento: row?.pagamento && typeof row.pagamento === "object" ?row.pagamento : {},
+    pagamentoAnalise: row?.pagamentoAnalise && typeof row.pagamentoAnalise === "object" ?row.pagamentoAnalise : {},
     statusAnalise: pick(row, ["statusAnalise"], "pendente"),
     observacaoAnalise: pick(row, ["observacaoAnalise"], ""),
     analisadoPor: pick(row, ["analisadoPor"], ""),
     analisadoEm: pick(row, ["analisadoEm"], ""),
-    arquivosAnexados: Array.isArray(row?.arquivosAnexados) ? row.arquivosAnexados : []
+    arquivosAnexados: Array.isArray(row?.arquivosAnexados) ?row.arquivosAnexados : []
   };
 }
 
@@ -561,7 +561,7 @@ function applySidebarState() {
 function parseDateObject(value) {
   if (!value) return null;
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return Number.isNaN(date.getTime()) ?null : date;
 }
 
 function toYmd(date) {
@@ -580,7 +580,7 @@ function buildTable(rows, ownerKey) {
       <table>
         <thead>
           <tr>
-            <th>${ownerKey === "cliente" ? "Cliente" : "Fornecedor"}</th>
+            <th>${ownerKey === "cliente" ?"Cliente" : "Fornecedor"}</th>
             <th>Descrição</th>
             <th>Vencimento</th>
             <th>Valor</th>
@@ -590,7 +590,7 @@ function buildTable(rows, ownerKey) {
         <tbody>
           ${rows
             .map((row) => {
-              const statusClass = row.status.includes("Atras") || row.status.includes("Venc") ? "bad" : row.status.includes("Pago") ? "ok" : "warn";
+              const statusClass = row.status.includes("Atras") || row.status.includes("Venc") ?"bad" : row.status.includes("Pago") ?"ok" : "warn";
               return `
                 <tr>
                   <td>${row[ownerKey]}</td>
@@ -610,7 +610,7 @@ function buildTable(rows, ownerKey) {
 
 function applyTableView(rows, tableType) {
   const prefs = state.tablePrefs[tableType];
-  const ownerKey = tableType === "receber" ? "cliente" : "fornecedor";
+  const ownerKey = tableType === "receber" ?"cliente" : "fornecedor";
   const today = getTodayYmd();
   const filtered = rows.filter((row) => {
     if (prefs.search) {
@@ -637,8 +637,8 @@ function applyTableView(rows, tableType) {
     const av = toComparable(a[prefs.sortBy]);
     const bv = toComparable(b[prefs.sortBy]);
     if (av === bv) return 0;
-    const cmp = av > bv ? 1 : -1;
-    return prefs.sortDir === "asc" ? cmp : -cmp;
+    const cmp = av > bv ?1 : -1;
+    return prefs.sortDir === "asc" ?cmp : -cmp;
   });
 
   const total = sorted.length;
@@ -663,30 +663,6 @@ function downloadFile(filename, content, mime) {
   URL.revokeObjectURL(url);
 }
 
-async function downloadAnexo(assetPath, nome) {
-  try {
-    await ensureSessionFresh();
-    const response = await fetch(`/api/ficha-cliente/anexo?path=${encodeURIComponent(assetPath)}`, {
-      headers: state.token ? { Authorization: `Bearer ${state.token}` } : {}
-    });
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.message || "Erro ao baixar arquivo.");
-    }
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = nome || assetPath.split("/").pop();
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch (e) {
-    alert(e.message);
-  }
-}
-
 function toCsv(rows, columns) {
   const header = columns.map((c) => c.label).join(";");
   const lines = rows.map((row) =>
@@ -702,11 +678,11 @@ function toCsv(rows, columns) {
 }
 
 function exportRows(tableType, rows, format) {
-  const ownerKey = tableType === "receber" ? "cliente" : "fornecedor";
+  const ownerKey = tableType === "receber" ?"cliente" : "fornecedor";
   const columns = [
     { label: "DOC", value: (r) => r.documentoID },
     { label: "Nota", value: (r) => r.numeroDocumento },
-    { label: ownerKey === "cliente" ? "Cliente" : "Fornecedor", value: (r) => r[ownerKey] },
+    { label: ownerKey === "cliente" ?"Cliente" : "Fornecedor", value: (r) => r[ownerKey] },
     { label: "Titulo", value: (r) => r.titulo },
     { label: "Vencimento", value: (r) => parseDate(r.vencimento) },
     { label: "Banco", value: (r) => r.agenteCobrador },
@@ -730,7 +706,7 @@ function exportRows(tableType, rows, format) {
       <html>
         <head><title>${baseName}</title><style>body{font-family:Arial,sans-serif;padding:24px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:12px}</style></head>
         <body>
-          <h2>${tableType === "receber" ? "Contas a Receber" : "Contas a Pagar"}</h2>
+          <h2>${tableType === "receber" ?"Contas a Receber" : "Contas a Pagar"}</h2>
           <table><thead><tr>${columns.map((c) => `<th>${escapeHtml(c.label)}</th>`).join("")}</tr></thead>
           <tbody>${rows.map((row) => `<tr>${columns.map((c) => `<td>${escapeHtml(c.value(row))}</td>`).join("")}</tr>`).join("")}</tbody></table>
         </body>
@@ -751,42 +727,119 @@ function exportRows(tableType, rows, format) {
   }).catch(() => undefined);
 }
 
+function summarizeReceberView(view) {
+  const rows = view.filtered || [];
+  const today = getTodayYmd();
+  const overdue = rows.filter((row) => isReceberOverdue(row, today)).length;
+  const totalValue = rows.reduce((acc, row) => acc + Number(row.saldo || 0), 0);
+  return {
+    total: rows.length,
+    totalValue,
+    overdue,
+    open: Math.max(rows.length - overdue, 0)
+  };
+}
+
+function getReceberStatusTone(row) {
+  if (isReceberOverdue(row)) return "bad";
+  const status = String(row.status || row.situacao || "").toLowerCase();
+  if (status.includes("pag")) return "ok";
+  if (status.includes("venc")) return "bad";
+  if (status.includes("a vencer")) return "warn";
+  return "neutral";
+}
+
+function renderReceberStatusBadge(row) {
+  const tone = getReceberStatusTone(row);
+  const label = row.status || row.situacao || "Em aberto";
+  return `<span class="receber-status-badge ${tone}">${escapeHtml(label)}</span>`;
+}
+
+function renderReceberKpis(summary) {
+  return `
+    <div class="receber-summary-grid">
+      <div class="receber-kpi-card">
+        <span class="receber-kpi-label">Registros filtrados</span>
+        <strong class="receber-kpi-value">${summary.total}</strong>
+        <small class="receber-kpi-sub">Títulos na visão atual</small>
+      </div>
+      <div class="receber-kpi-card">
+        <span class="receber-kpi-label">Valor total</span>
+        <strong class="receber-kpi-value">${currency.format(summary.totalValue)}</strong>
+        <small class="receber-kpi-sub">Soma dos títulos filtrados</small>
+      </div>
+      <div class="receber-kpi-card bad">
+        <span class="receber-kpi-label">Vencidos</span>
+        <strong class="receber-kpi-value">${summary.overdue}</strong>
+        <small class="receber-kpi-sub">Requerem atenção</small>
+      </div>
+      <div class="receber-kpi-card warn">
+        <span class="receber-kpi-label">Em aberto / a vencer</span>
+        <strong class="receber-kpi-value">${summary.open}</strong>
+        <small class="receber-kpi-sub">Dentro da carteira filtrada</small>
+      </div>
+    </div>
+  `;
+}
+
+function renderReceberEmptyState() {
+  return `
+    <div class="receber-empty-state">
+      <strong>Nenhum título encontrado</strong>
+      <span>Ajuste os filtros ou consulte outro período para atualizar a carteira.</span>
+    </div>
+  `;
+}
 function renderReceber() {
   const view = applyTableView(state.receber, "receber");
   const prefs = state.tablePrefs.receber;
-  const errorBlock = state.receberError ? `<p style="color:#dc2626;font-weight:600;">${state.receberError}</p>` : "";
+  const summary = summarizeReceberView(view);
+  const errorBlock = state.receberError ?`<p style="color:#dc2626;font-weight:600;">${state.receberError}</p>` : "";
   const situacaoOptions = Object.entries(RECEBER_SITUACAO_LABELS)
-    .map(([value, label]) => `<option value="${value}" ${String(state.receberFilter.situacao) === value ? "selected" : ""}>${label}</option>`)
+    .map(([value, label]) => `<option value="${value}" ${String(state.receberFilter.situacao) === value ?"selected" : ""}>${label}</option>`)
     .join("");
   byId("receber-screen").innerHTML = `
-    <article class="table-wrap list-full-height">
-      <h3>Contas a Receber</h3>
-      <div class="toolbar">
-        <label>Data inicial <input type="date" id="receber-data-inicial" class="upload-input" value="${state.receberFilter.dataInicial}" /></label>
-        <label>Data final <input type="date" id="receber-data-final" class="upload-input" value="${state.receberFilter.dataFinal}" /></label>
-        <label>Situação <select id="receber-situacao" class="upload-input">${situacaoOptions}</select></label>
-        <input id="receber-search" class="upload-input" placeholder="Buscar..." value="${escapeHtml(prefs.search)}" />
-        <input id="receber-bank" class="upload-input" placeholder="Banco" value="${escapeHtml(prefs.bank)}" />
-        <input id="receber-owner" class="upload-input" placeholder="Cliente" value="${escapeHtml(prefs.owner)}" />
-        <input id="receber-min" class="upload-input" type="number" step="0.01" placeholder="Valor mín." value="${escapeHtml(prefs.minValue)}" />
-        <input id="receber-max" class="upload-input" type="number" step="0.01" placeholder="Valor máx." value="${escapeHtml(prefs.maxValue)}" />
-        <label><input id="receber-overdue" type="checkbox" ${prefs.vencidosOnly ? "checked" : ""} /> Vencidos</label>
-        <select id="receber-page-size" class="upload-input">
-          <option value="10" ${view.pageSize === 10 ? "selected" : ""}>10</option>
-          <option value="20" ${view.pageSize === 20 ? "selected" : ""}>20</option>
-          <option value="50" ${view.pageSize === 50 ? "selected" : ""}>50</option>
-        </select>
-        <button id="receber-consultar-btn" class="primary-btn">Consultar</button>
-        <button id="receber-export-csv" class="ghost-btn">CSV</button>
-        <button id="receber-export-xlsx" class="ghost-btn">XLSX</button>
-        <button id="receber-export-pdf" class="ghost-btn">PDF</button>
+    <article class="table-wrap list-full-height receber-page">
+      <div class="receber-header">
+        <div class="receber-header-copy">
+          <small>Carteira financeira</small>
+          <h3>Contas a Receber</h3>
+          <p>Monitore vencimentos, valores em aberto e títulos filtrados sem sair da operação.</p>
+        </div>
+      </div>
+      ${renderReceberKpis(summary)}
+      <div class="toolbar data-grid-toolbar receber-toolbar">
+        <div class="receber-filter-group">
+          <label>Data inicial <input type="date" id="receber-data-inicial" class="upload-input" value="${state.receberFilter.dataInicial}" /></label>
+          <label>Data final <input type="date" id="receber-data-final" class="upload-input" value="${state.receberFilter.dataFinal}" /></label>
+          <label>Situação <select id="receber-situacao" class="upload-input">${situacaoOptions}</select></label>
+          <input id="receber-search" class="upload-input receber-search-input" placeholder="Buscar..." value="${escapeHtml(prefs.search)}" />
+          <input id="receber-bank" class="upload-input" placeholder="Banco" value="${escapeHtml(prefs.bank)}" />
+          <input id="receber-owner" class="upload-input" placeholder="Cliente" value="${escapeHtml(prefs.owner)}" />
+          <input id="receber-min" class="upload-input" type="number" step="0.01" placeholder="Valor mín." value="${escapeHtml(prefs.minValue)}" />
+          <input id="receber-max" class="upload-input" type="number" step="0.01" placeholder="Valor máx." value="${escapeHtml(prefs.maxValue)}" />
+          <label class="receber-filter-check"><input id="receber-overdue" type="checkbox" ${prefs.vencidosOnly ?"checked" : ""} /> Vencidos</label>
+          <select id="receber-page-size" class="upload-input" title="Registros por página">
+            <option value="10" ${view.pageSize === 10 ?"selected" : ""}>10</option>
+            <option value="20" ${view.pageSize === 20 ?"selected" : ""}>20</option>
+            <option value="50" ${view.pageSize === 50 ?"selected" : ""}>50</option>
+          </select>
+        </div>
+        <div class="receber-toolbar-actions">
+          <button id="receber-consultar-btn" class="primary-btn">Consultar</button>
+          <div class="receber-export-group" aria-label="Exportações">
+            <button id="receber-export-csv" class="ghost-btn">CSV</button>
+            <button id="receber-export-xlsx" class="ghost-btn">XLSX</button>
+            <button id="receber-export-pdf" class="ghost-btn">PDF</button>
+          </div>
+        </div>
       </div>
       ${errorBlock}
       ${buildReceberTable(view.paged, "receber")}
-      <div class="table-pagination">
-        <button id="receber-prev" class="ghost-btn" ${view.page <= 1 ? "disabled" : ""}>Anterior</button>
+      <div class="table-pagination data-grid-pagination receber-pagination">
+        <button id="receber-prev" class="ghost-btn" ${view.page <= 1 ?"disabled" : ""}>Anterior</button>
         <small>Página ${view.page} de ${view.totalPages} | ${view.total} registros</small>
-        <button id="receber-next" class="ghost-btn" ${view.page >= view.totalPages ? "disabled" : ""}>Próxima</button>
+        <button id="receber-next" class="ghost-btn" ${view.page >= view.totalPages ?"disabled" : ""}>Próxima</button>
       </div>
     </article>
   `;
@@ -860,22 +913,25 @@ function renderReceber() {
   byId("receber-export-xlsx").addEventListener("click", () => exportRows("receber", view.filtered, "xlsx"));
   byId("receber-export-pdf").addEventListener("click", () => exportRows("receber", view.filtered, "pdf"));
 }
-
 function buildReceberTable(rows, tableType = "receber") {
   const prefs = state.tablePrefs[tableType];
   const sortable = (label, key) =>
-    `<button class="th-sort ${prefs.sortBy === key ? "active" : ""}" data-table="${tableType}" data-sort="${key}">
-      ${label} ${prefs.sortBy === key ? (prefs.sortDir === "asc" ? "▲" : "▼") : ""}
+    `<button class="th-sort data-grid-sort ${prefs.sortBy === key ?"active" : ""}" data-table="${tableType}" data-sort="${key}">
+      ${label} ${prefs.sortBy === key ?(prefs.sortDir === "asc" ?"&uarr;" : "&darr;") : ""}
     </button>`;
+
+  if (!rows.length) {
+    return renderReceberEmptyState();
+  }
+
   return `
-    <div class="table-scroll">
-      <table>
+    <div class="table-scroll data-grid-scroll receber-table-scroll">
+      <table class="data-grid receber-table">
         <thead>
           <tr>
             <th>${sortable("DOC", "documentoID")}</th>
-            <th>${sortable("Nota", "numeroDocumento")}</th>
             <th>${sortable("Cliente", "cliente")}</th>
-            <th>${sortable("Titulo", "titulo")}</th>
+            <th>${sortable("Título / Nota", "titulo")}</th>
             <th>${sortable("Vencimento", "vencimento")}</th>
             <th>${sortable("Banco", "agenteCobrador")}</th>
             <th>${sortable("Valor", "saldo")}</th>
@@ -884,27 +940,41 @@ function buildReceberTable(rows, tableType = "receber") {
         </thead>
         <tbody>
           ${rows
-            .map(
-              (row) => `
-                <tr>
-                  <td>${row.documentoID}</td>
-                  <td>${row.numeroDocumento}</td>
-                  <td>${row.cliente}</td>
-                  <td>${row.titulo}</td>
-                  <td>${parseDate(row.vencimento)}</td>
-                  <td>${row.agenteCobrador}</td>
-                  <td>${currency.format(row.saldo || 0)}</td>
-                  <td>${row.status}</td>
+            .map((row) => {
+              const dueTone = isReceberOverdue(row) ?"bad" : "neutral";
+              return `
+                <tr class="data-grid-row receber-row ${isReceberOverdue(row) ?"is-overdue" : ""}">
+                  <td class="receber-doc-id">${escapeHtml(row.documentoID || "-")}</td>
+                  <td>
+                    <div class="receber-client-cell">
+                      <strong class="receber-client-name">${escapeHtml(row.cliente || "Sem cliente")}</strong>
+                      <span class="receber-client-sub">Nota ${escapeHtml(row.numeroDocumento || "-")}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="receber-title-cell">
+                      <strong>${escapeHtml(row.titulo || row.descricao || "-")}</strong>
+                      <span>${escapeHtml(row.descricao && row.descricao !== row.titulo ?row.descricao : row.numeroDocumento || "-")}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="receber-date-cell ${dueTone}">
+                      <strong>${escapeHtml(parseDate(row.vencimento))}</strong>
+                      <span>${isReceberOverdue(row) ?"Vencido" : "Carteira"}</span>
+                    </div>
+                  </td>
+                  <td class="receber-bank-cell">${escapeHtml(row.agenteCobrador || "-")}</td>
+                  <td class="receber-money-cell">${currency.format(row.saldo || 0)}</td>
+                  <td>${renderReceberStatusBadge(row)}</td>
                 </tr>
-              `
-            )
+              `;
+            })
             .join("")}
         </tbody>
       </table>
     </div>
   `;
 }
-
 function renderBoletos() {
   byId("boletos-screen").innerHTML = `
     <article class="table-wrap">
@@ -914,38 +984,123 @@ function renderBoletos() {
   `;
 }
 
+function summarizePagarView(view) {
+  const rows = view.filtered || [];
+  const today = getTodayYmd();
+  const overdue = rows.filter((row) => {
+    const due = String(row.vencimento || "").slice(0, 10);
+    return Boolean(due) && due < today;
+  }).length;
+  const totalValue = rows.reduce((acc, row) => acc + Number(row.saldo || 0), 0);
+  return {
+    total: rows.length,
+    totalValue,
+    overdue,
+    open: Math.max(rows.length - overdue, 0)
+  };
+}
+
+function isPagarOverdue(row, today = getTodayYmd()) {
+  const due = String(row.vencimento || "").slice(0, 10);
+  return Boolean(due) && due < today;
+}
+
+function getPagarStatusTone(row) {
+  if (isPagarOverdue(row)) return "bad";
+  const status = String(row.status || "").toLowerCase();
+  if (status.includes("pag") || status.includes("baix")) return "ok";
+  if (status.includes("venc") || status.includes("atras")) return "bad";
+  if (status.includes("aberto") || status.includes("vencer") || status.includes("pagar")) return "warn";
+  return "neutral";
+}
+
+function renderPagarStatusBadge(row) {
+  const tone = getPagarStatusTone(row);
+  const label = row.status || (isPagarOverdue(row) ?"Vencido" : "A pagar");
+  return `<span class="pagar-status-badge ${tone}">${escapeHtml(label)}</span>`;
+}
+
+function renderPagarKpis(summary) {
+  return `
+    <div class="pagar-summary-grid">
+      <div class="pagar-kpi-card">
+        <span class="pagar-kpi-label">Obrigações filtradas</span>
+        <strong class="pagar-kpi-value">${summary.total}</strong>
+        <small class="pagar-kpi-sub">Compromissos na visão atual</small>
+      </div>
+      <div class="pagar-kpi-card total">
+        <span class="pagar-kpi-label">Valor total a pagar</span>
+        <strong class="pagar-kpi-value">${currency.format(summary.totalValue)}</strong>
+        <small class="pagar-kpi-sub">Soma das obrigações filtradas</small>
+      </div>
+      <div class="pagar-kpi-card bad">
+        <span class="pagar-kpi-label">Vencidos</span>
+        <strong class="pagar-kpi-value">${summary.overdue}</strong>
+        <small class="pagar-kpi-sub">Demandam priorização</small>
+      </div>
+      <div class="pagar-kpi-card warn">
+        <span class="pagar-kpi-label">A vencer / em aberto</span>
+        <strong class="pagar-kpi-value">${summary.open}</strong>
+        <small class="pagar-kpi-sub">Obrigações em acompanhamento</small>
+      </div>
+    </div>
+  `;
+}
+
+function renderPagarEmptyState() {
+  return `
+    <div class="pagar-empty-state">
+      <strong>Nenhuma obrigação encontrada</strong>
+      <span>Ajuste os filtros ou consulte outro período para revisar a agenda de pagamentos.</span>
+    </div>
+  `;
+}
 function renderPagar() {
   const view = applyTableView(state.pagar, "pagar");
   const prefs = state.tablePrefs.pagar;
-  const errorBlock = state.pagarError ? `<p style="color:#dc2626;font-weight:600;">${state.pagarError}</p>` : "";
+  const summary = summarizePagarView(view);
+  const errorBlock = state.pagarError ?`<p style="color:#dc2626;font-weight:600;">${state.pagarError}</p>` : "";
   byId("pagar-screen").innerHTML = `
-    <article class="table-wrap list-full-height">
-      <h3>Contas a Pagar</h3>
-      <div class="toolbar">
-        <label>Data inicial <input type="date" id="pagar-data-inicial" class="upload-input" value="${state.pagarFilter.dataInicial}" /></label>
-        <label>Data final <input type="date" id="pagar-data-final" class="upload-input" value="${state.pagarFilter.dataFinal}" /></label>
-        <input id="pagar-search" class="upload-input" placeholder="Buscar..." value="${escapeHtml(prefs.search)}" />
-        <input id="pagar-bank" class="upload-input" placeholder="Banco" value="${escapeHtml(prefs.bank)}" />
-        <input id="pagar-owner" class="upload-input" placeholder="Fornecedor" value="${escapeHtml(prefs.owner)}" />
-        <input id="pagar-min" class="upload-input" type="number" step="0.01" placeholder="Valor mín." value="${escapeHtml(prefs.minValue)}" />
-        <input id="pagar-max" class="upload-input" type="number" step="0.01" placeholder="Valor máx." value="${escapeHtml(prefs.maxValue)}" />
-        <label><input id="pagar-overdue" type="checkbox" ${prefs.vencidosOnly ? "checked" : ""} /> Vencidos</label>
-        <select id="pagar-page-size" class="upload-input">
-          <option value="10" ${view.pageSize === 10 ? "selected" : ""}>10</option>
-          <option value="20" ${view.pageSize === 20 ? "selected" : ""}>20</option>
-          <option value="50" ${view.pageSize === 50 ? "selected" : ""}>50</option>
-        </select>
-        <button id="pagar-consultar-btn" class="primary-btn">Consultar</button>
-        <button id="pagar-export-csv" class="ghost-btn">CSV</button>
-        <button id="pagar-export-xlsx" class="ghost-btn">XLSX</button>
-        <button id="pagar-export-pdf" class="ghost-btn">PDF</button>
+    <article class="table-wrap list-full-height pagar-page">
+      <div class="pagar-header">
+        <div class="pagar-header-copy">
+          <small>Agenda de obrigações</small>
+          <h3>Contas a Pagar</h3>
+          <p>Acompanhe fornecedores, vencimentos e compromissos financeiros da operação.</p>
+        </div>
+      </div>
+      ${renderPagarKpis(summary)}
+      <div class="toolbar data-grid-toolbar pagar-toolbar">
+        <div class="pagar-filter-group">
+          <label>Data inicial <input type="date" id="pagar-data-inicial" class="upload-input" value="${state.pagarFilter.dataInicial}" /></label>
+          <label>Data final <input type="date" id="pagar-data-final" class="upload-input" value="${state.pagarFilter.dataFinal}" /></label>
+          <input id="pagar-search" class="upload-input pagar-search-input" placeholder="Buscar..." value="${escapeHtml(prefs.search)}" />
+          <input id="pagar-bank" class="upload-input" placeholder="Banco" value="${escapeHtml(prefs.bank)}" />
+          <input id="pagar-owner" class="upload-input" placeholder="Fornecedor" value="${escapeHtml(prefs.owner)}" />
+          <input id="pagar-min" class="upload-input" type="number" step="0.01" placeholder="Valor mín." value="${escapeHtml(prefs.minValue)}" />
+          <input id="pagar-max" class="upload-input" type="number" step="0.01" placeholder="Valor máx." value="${escapeHtml(prefs.maxValue)}" />
+          <label class="pagar-filter-check"><input id="pagar-overdue" type="checkbox" ${prefs.vencidosOnly ?"checked" : ""} /> Vencidos</label>
+          <select id="pagar-page-size" class="upload-input" title="Registros por página">
+            <option value="10" ${view.pageSize === 10 ?"selected" : ""}>10</option>
+            <option value="20" ${view.pageSize === 20 ?"selected" : ""}>20</option>
+            <option value="50" ${view.pageSize === 50 ?"selected" : ""}>50</option>
+          </select>
+        </div>
+        <div class="pagar-toolbar-actions">
+          <button id="pagar-consultar-btn" class="primary-btn">Consultar</button>
+          <div class="pagar-export-group" aria-label="Exportações">
+            <button id="pagar-export-csv" class="ghost-btn">CSV</button>
+            <button id="pagar-export-xlsx" class="ghost-btn">XLSX</button>
+            <button id="pagar-export-pdf" class="ghost-btn">PDF</button>
+          </div>
+        </div>
       </div>
       ${errorBlock}
       ${buildPagarTable(view.paged, "pagar")}
-      <div class="table-pagination">
-        <button id="pagar-prev" class="ghost-btn" ${view.page <= 1 ? "disabled" : ""}>Anterior</button>
+      <div class="table-pagination data-grid-pagination pagar-pagination">
+        <button id="pagar-prev" class="ghost-btn" ${view.page <= 1 ?"disabled" : ""}>Anterior</button>
         <small>Página ${view.page} de ${view.totalPages} | ${view.total} registros</small>
-        <button id="pagar-next" class="ghost-btn" ${view.page >= view.totalPages ? "disabled" : ""}>Próxima</button>
+        <button id="pagar-next" class="ghost-btn" ${view.page >= view.totalPages ?"disabled" : ""}>Próxima</button>
       </div>
     </article>
   `;
@@ -1015,49 +1170,68 @@ function renderPagar() {
   byId("pagar-export-xlsx").addEventListener("click", () => exportRows("pagar", view.filtered, "xlsx"));
   byId("pagar-export-pdf").addEventListener("click", () => exportRows("pagar", view.filtered, "pdf"));
 }
-
 function buildPagarTable(rows, tableType = "pagar") {
   const prefs = state.tablePrefs[tableType];
   const sortable = (label, key) =>
-    `<button class="th-sort ${prefs.sortBy === key ? "active" : ""}" data-table="${tableType}" data-sort="${key}">
-      ${label} ${prefs.sortBy === key ? (prefs.sortDir === "asc" ? "▲" : "▼") : ""}
+    `<button class="th-sort data-grid-sort ${prefs.sortBy === key ?"active" : ""}" data-table="${tableType}" data-sort="${key}">
+      ${label} ${prefs.sortBy === key ?(prefs.sortDir === "asc" ?"&uarr;" : "&darr;") : ""}
     </button>`;
+
+  if (!rows.length) {
+    return renderPagarEmptyState();
+  }
+
   return `
-    <div class="table-scroll">
-      <table>
+    <div class="table-scroll data-grid-scroll pagar-table-scroll">
+      <table class="data-grid pagar-table">
         <thead>
           <tr>
             <th>${sortable("DOC", "documentoID")}</th>
-            <th>${sortable("Nota", "numeroDocumento")}</th>
             <th>${sortable("Fornecedor", "fornecedor")}</th>
-            <th>${sortable("Titulo", "titulo")}</th>
+            <th>${sortable("Título / Nota", "titulo")}</th>
             <th>${sortable("Vencimento", "vencimento")}</th>
             <th>${sortable("Banco", "agenteCobrador")}</th>
             <th>${sortable("Valor", "saldo")}</th>
+            <th>${sortable("Status", "status")}</th>
           </tr>
         </thead>
         <tbody>
           ${rows
-            .map(
-              (row) => `
-                <tr>
-                  <td>${row.documentoID}</td>
-                  <td>${row.numeroDocumento}</td>
-                  <td>${row.fornecedor}</td>
-                  <td>${row.titulo}</td>
-                  <td>${parseDate(row.vencimento)}</td>
-                  <td>${row.agenteCobrador}</td>
-                  <td>${currency.format(row.saldo || 0)}</td>
+            .map((row) => {
+              const dueTone = isPagarOverdue(row) ?"bad" : "neutral";
+              return `
+                <tr class="data-grid-row pagar-row ${isPagarOverdue(row) ?"is-overdue" : ""}">
+                  <td class="pagar-doc-id">${escapeHtml(row.documentoID || "-")}</td>
+                  <td>
+                    <div class="pagar-supplier-cell">
+                      <strong class="pagar-supplier-name">${escapeHtml(row.fornecedor || "Sem fornecedor")}</strong>
+                      <span class="pagar-supplier-sub">Nota ${escapeHtml(row.numeroDocumento || "-")}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="pagar-title-cell">
+                      <strong>${escapeHtml(row.titulo || row.descricao || "-")}</strong>
+                      <span>${escapeHtml(row.descricao && row.descricao !== row.titulo ?row.descricao : row.numeroDocumento || "-")}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="pagar-date-cell ${dueTone}">
+                      <strong>${escapeHtml(parseDate(row.vencimento))}</strong>
+                      <span>${isPagarOverdue(row) ?"Vencido" : "Agenda"}</span>
+                    </div>
+                  </td>
+                  <td class="pagar-bank-cell">${escapeHtml(row.agenteCobrador || "-")}</td>
+                  <td class="pagar-money-cell">${currency.format(row.saldo || 0)}</td>
+                  <td>${renderPagarStatusBadge(row)}</td>
                 </tr>
-              `
-            )
+              `;
+            })
             .join("")}
         </tbody>
       </table>
     </div>
   `;
 }
-
 function getConciliationTxKey(tx) {
   return [tx.fitId || "", tx.postedAt || "", Number(tx.amount || 0).toFixed(2), tx.documentNumber || "", tx.name || ""].join("|");
 }
@@ -1078,59 +1252,156 @@ function buildCatalogOptions(options, selectedValue, placeholder) {
   return [`<option value="">${placeholder}</option>`]
     .concat(
       (options || []).map(
-        (item) => `<option value="${item.id}" ${String(selectedValue) === String(item.id) ? "selected" : ""}>${escapeHtml(item.label)}</option>`
+        (item) => `<option value="${item.id}" ${String(selectedValue) === String(item.id) ?"selected" : ""}>${escapeHtml(item.label)}</option>`
       )
     )
     .join("");
 }
 
-function txCard(tx, options = {}) {
-  const { selectable = false, checked = false, disabled = false, key = "" } = options;
-  const valueClass = tx.amount >= 0 ? "ok" : "warn";
-  const amount = currency.format(Math.abs(tx.amount));
-  const direction = tx.amount >= 0 ? "Crédito" : "Débito";
-  const nameHasAmount = /r\$\s*\d/i.test(String(tx.name || ""));
-  let matchedBlock = "";
-  if (tx.matched) {
-    if (tx.matched.isGroup) {
-      const docs = (tx.matched.items || [])
+function getConciliacaoPipelineTone(group) {
+  if (group === "conciliated") return "match";
+  if (group === "review") return "review";
+  if (group === "divergent") return "divergent";
+  return "neutral";
+}
+
+function getConciliacaoMatchScore(tx, group = "conciliated") {
+  if (tx?.settlement?.status === "success") return { label: "Baixado", tone: "success", percent: 100 };
+  if (tx?.matched?.isGroup) return { label: "Match em lote", tone: "success", percent: 92 };
+  if (group === "conciliated") return { label: "Match forte", tone: "success", percent: 88 };
+  if (group === "review") return { label: "Revisão necessária", tone: "warning", percent: 54 };
+  if (group === "divergent") return { label: "Divergente", tone: "danger", percent: 18 };
+  return { label: "Em análise", tone: "neutral", percent: 40 };
+}
+
+function renderConciliacaoBadge(label, tone = "neutral") {
+  return `<span class="conciliacao-badge ${tone}">${escapeHtml(label)}</span>`;
+}
+
+function renderConciliacaoScore(score) {
+  const width = Math.min(Math.max(Number(score.percent || 0), 0), 100);
+  return `
+    <div class="conciliacao-score ${score.tone}">
+      <div class="conciliacao-score-copy">
+        <span>${escapeHtml(score.label)}</span>
+        <strong>${width}%</strong>
+      </div>
+      <div class="conciliacao-score-track"><span style="width:${width}%"></span></div>
+    </div>
+  `;
+}
+
+function renderConciliacaoPipelineEmptyState(title, text, tone = "neutral") {
+  return `
+    <div class="conciliacao-pipeline-empty ${tone}">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(text)}</span>
+    </div>
+  `;
+}
+
+function renderConciliacaoPipelineCard(tx, options = {}) {
+  const { selectable = false, checked = false, disabled = false, key = "", group = "conciliated" } = options || {};
+  const tone = getConciliacaoPipelineTone(group);
+  const score = getConciliacaoMatchScore(tx, group);
+  const amount = Number(tx.amount || 0);
+  const direction = amount >= 0 ?"Crédito" : "Débito";
+  const directionTone = amount >= 0 ?"success" : "warning";
+  const date = tx.postedAt ?new Date(tx.postedAt).toLocaleDateString("pt-BR") : "Data não encontrada";
+  const matchType = tx?.matched?.entityType ?String(tx.matched.entityType).toUpperCase() : "";
+  const matchTitle = tx?.matched?.titulo || tx?.matched?.numeroDocumento || "";
+  const matchDoc = tx?.matched?.numeroDocumento || tx?.matched?.documentoID || "";
+  const groupCount = tx?.matched?.isGroup ?Number(tx.matched.itemCount || tx.matched.items?.length || 0) : 0;
+  const docs = tx?.matched?.isGroup
+    ?(tx.matched.items || [])
         .map((item) => item.numeroDocumento || item.documentoID)
         .filter(Boolean)
-        .slice(0, 5)
-        .join(", ");
-      matchedBlock = `<p><strong>Match em lote ${tx.matched.entityType.toUpperCase()}:</strong> ${tx.matched.itemCount || 0} títulos | Total ${currency.format(
-        tx.matched.totalSaldo || 0
-      )}${docs ? ` | Docs ${docs}` : ""}</p>`;
-    } else {
-      matchedBlock = `<p><strong>Match ${tx.matched.entityType.toUpperCase()}:</strong> ${tx.matched.titulo || "-"} | Doc ${tx.matched.numeroDocumento || "-"}</p>`;
-    }
-  }
-  let settlementBlock = "";
-  if (tx.settlement) {
-    const statusClass = tx.settlement.status === "success" ? "ok" : tx.settlement.status === "error" ? "bad" : "warn";
-    const statusLabel = tx.settlement.status === "success" ? "Baixado" : tx.settlement.status === "error" ? "Erro na baixa" : "Pendente";
-    const processedAt = tx.settlement.processedAt ? new Date(tx.settlement.processedAt).toLocaleString("pt-BR") : "";
-    settlementBlock = `
-      <p><strong>Status:</strong> <span class="tag ${statusClass}">${statusLabel}</span></p>
-      ${tx.settlement.message ? `<p>${escapeHtml(tx.settlement.message)}</p>` : ""}
-      ${processedAt ? `<p><strong>Processado em:</strong> ${processedAt}</p>` : ""}
-    `;
-  }
-  const reasonBlock = tx.reason ? `<p><strong>Motivo:</strong> ${tx.reason}</p>` : "";
-  const selectBlock = selectable
-    ? `<label class="tx-select"><input type="checkbox" class="conc-item-check" data-key="${escapeHtml(key)}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""} /> Selecionar para baixa</label>`
+        .slice(0, 4)
+        .join(", ")
     : "";
+  const selectBlock = selectable
+    ?`<label class="tx-select conciliacao-card-select"><input type="checkbox" class="conc-item-check" data-key="${escapeHtml(key)}" ${checked ?"checked" : ""} ${disabled ?"disabled" : ""} /> Selecionar para baixa</label>`
+    : "";
+  const matchBlock = tx.matched
+    ?`
+      <div class="conciliacao-card-match-box">
+        <span>${escapeHtml(tx.matched.isGroup ?`Match em lote ${matchType}` : `Match ${matchType}`)}</span>
+        <strong>${escapeHtml(tx.matched.isGroup ?`${groupCount} título(s) | ${currency.format(tx.matched.totalSaldo || 0)}` : matchTitle || "-")}</strong>
+        ${matchDoc || docs ?`<small>${escapeHtml(docs ?`Docs ${docs}` : `Doc ${matchDoc}`)}</small>` : ""}
+      </div>
+    `
+    : "";
+  const reasonBlock = tx.reason ?`<div class="conciliacao-card-reason"><span>Motivo</span><strong>${escapeHtml(tx.reason)}</strong></div>` : "";
+  const settlementBlock = tx.settlement
+    ?`
+      <div class="conciliacao-card-status">
+        ${renderConciliacaoBadge(
+          tx.settlement.status === "success" ?"Baixado" : tx.settlement.status === "error" ?"Erro na baixa" : "Pendente",
+          tx.settlement.status === "success" ?"success" : tx.settlement.status === "error" ?"danger" : "warning"
+        )}
+        ${tx.settlement.processedAt ?`<small>${escapeHtml(new Date(tx.settlement.processedAt).toLocaleString("pt-BR"))}</small>` : ""}
+        ${tx.settlement.message ?`<p>${escapeHtml(tx.settlement.message)}</p>` : ""}
+      </div>
+    `
+    : "";
+
   return `
-    <article class="tx">
+    <article class="tx conciliacao-card ${tone}">
       ${selectBlock}
-      <small class="tag ${valueClass}">${direction}</small>
-      <strong>${tx.name || "Sem descrição"}${nameHasAmount ? "" : ` - ${amount}`}</strong>
-      <p>${tx.memo || "Sem memo"}</p>
-      ${matchedBlock}
-      ${settlementBlock}
+      <div class="conciliacao-card-top">
+        <div class="conciliacao-card-bank">
+          <span>Banco</span>
+          <strong>${escapeHtml(tx.bankName || "Banco não identificado")}</strong>
+        </div>
+        <div class="conciliacao-card-value ${amount >= 0 ?"positive" : "negative"}">
+          <span>${escapeHtml(direction)}</span>
+          <strong>${currency.format(Math.abs(amount))}</strong>
+        </div>
+      </div>
+      <div class="conciliacao-card-main">
+        <strong>${escapeHtml(tx.name || "Sem descrição")}</strong>
+        <span>${escapeHtml(tx.memo || "Sem memo")}</span>
+      </div>
+      <div class="conciliacao-card-tags">
+        ${renderConciliacaoBadge(direction, directionTone)}
+        ${matchType ?renderConciliacaoBadge(matchType, "neutral") : ""}
+      </div>
+      ${renderConciliacaoScore(score)}
+      ${matchBlock}
       ${reasonBlock}
-      <p>${tx.postedAt ? new Date(tx.postedAt).toLocaleDateString("pt-BR") : "Data não encontrada"}</p>
+      ${settlementBlock}
+      <div class="conciliacao-card-footer">
+        <span>${escapeHtml(date)}</span>
+        ${renderConciliacaoBadge(tone === "match" ?"Operacional" : tone === "review" ?"Revisar" : tone === "divergent" ?"Atenção" : "Monitorar", score.tone)}
+      </div>
     </article>
+  `;
+}
+
+function txCard(tx, options = {}) {
+  return renderConciliacaoPipelineCard(tx, options);
+}
+
+function renderConciliacaoPipelineColumn({ title, subtitle, group, transactions, emptyTitle, emptyText, actions = "", renderItem }) {
+  const tone = getConciliacaoPipelineTone(group);
+  return `
+    <section class="conciliacao-pipeline-column ${tone}">
+      <div class="conciliacao-pipeline-header">
+        <div class="conciliacao-pipeline-title">
+          <span>${escapeHtml(subtitle)}</span>
+          <h4>${escapeHtml(title)}</h4>
+        </div>
+        <strong class="conciliacao-pipeline-count">${transactions.length}</strong>
+      </div>
+      ${actions ?`<div class="conciliacao-pipeline-actions">${actions}</div>` : ""}
+      <div class="conciliacao-pipeline-list">
+        ${
+          transactions.length
+            ?transactions.map(renderItem).join("")
+            : renderConciliacaoPipelineEmptyState(emptyTitle, emptyText, tone)
+        }
+      </div>
+    </section>
   `;
 }
 
@@ -1178,7 +1449,13 @@ function summarizeByBank(transactions) {
 }
 
 function renderBankSummaryTable(rows) {
-  if (!rows.length) return "<p>Sem lançamentos.</p>";
+  if (!rows.length) {
+    return renderConciliacaoEmptyState(
+      "Nenhum lançamento encontrado",
+      "Assim que um OFX for processado, os bancos e saldos aparecem neste resumo.",
+      "neutral"
+    );
+  }
   return `
     <div class="table-scroll">
       <table>
@@ -1223,17 +1500,17 @@ function renderConciliacao() {
   }
 
   const catalogs = state.reconciliationCatalogs;
-  const conciliatedAll = result ? result.groups.conciliated || [] : [];
-  const conciliatedList = result ? filterTransactionsByBank(conciliatedAll, state.conciliationBankFilter) : [];
-  const reviewList = result ? filterTransactionsByBank(result.groups.review, state.conciliationBankFilter) : [];
-  const divergentList = result ? filterTransactionsByBank(result.groups.divergent, state.conciliationBankFilter) : [];
+  const conciliatedAll = result ?result.groups.conciliated || [] : [];
+  const conciliatedList = result ?filterTransactionsByBank(conciliatedAll, state.conciliationBankFilter) : [];
+  const reviewList = result ?filterTransactionsByBank(result.groups.review, state.conciliationBankFilter) : [];
+  const divergentList = result ?filterTransactionsByBank(result.groups.divergent, state.conciliationBankFilter) : [];
   const selectableAll = getSelectableConciliationTransactions(conciliatedAll);
   const selectableKeys = new Set(selectableAll.map((tx) => getConciliationTxKey(tx)));
   state.selectedConciliationKeys = new Set([...state.selectedConciliationKeys].filter((key) => selectableKeys.has(key)));
   const selectableVisible = getSelectableConciliationTransactions(conciliatedList);
   const selectedVisibleCount = selectableVisible.reduce((acc, tx) => {
     const key = getConciliationTxKey(tx);
-    return acc + (state.selectedConciliationKeys.has(key) ? 1 : 0);
+    return acc + (state.selectedConciliationKeys.has(key) ?1 : 0);
   }, 0);
   const allVisibleSelected = selectableVisible.length > 0 && selectedVisibleCount === selectableVisible.length;
   const selectedTransactions = getSelectedConciliationTransactions(selectableAll);
@@ -1241,181 +1518,115 @@ function renderConciliacao() {
   const selectedReceberCount = selectedTransactions.filter((tx) => tx?.matched?.entityType === "receber").length;
   const selectedPagarCount = selectedTransactions.filter((tx) => tx?.matched?.entityType === "pagar").length;
   const selectedAmountTotal = selectedTransactions.reduce((acc, tx) => acc + Math.abs(Number(tx.amount || 0)), 0);
+  const conciliationSummary = summarizeConciliacao(result);
 
   const stats = result
-    ? `Arquivos ${result.totals.files} | Total ${result.totals.total} | Conciliado ${result.totals.conciliated} | Revisar ${result.totals.review} | Divergente ${result.totals.divergent}`
+    ?`Arquivos ${result.totals.files} | Total ${result.totals.total} | Conciliado ${result.totals.conciliated} | Revisar ${result.totals.review} | Divergente ${result.totals.divergent}`
     : "Nenhum OFX processado";
   const fileSummary =
     result && Array.isArray(result.filesSummary)
-      ? result.filesSummary
-          .map((item) => `${item.fileName} | ${item.bankName} | conta ${item.accountId || "-"} | ${item.transactions} lançamentos`)
+      ?result.filesSummary
+          .map(
+            (item) =>
+              `${escapeHtml(item.fileName)} | ${escapeHtml(item.bankName)} | conta ${escapeHtml(item.accountId || "-")} | ${escapeHtml(
+                item.transactions
+              )} lançamentos`
+          )
           .join("<br/>")
       : "";
   const matchingSummary =
     result && result.matchingSummary
-      ? `Base consultada: ${result.matchingSummary.receberLoaded} receber | ${result.matchingSummary.pagarLoaded} pagar | período ${result.matchingSummary.rangeStart} até ${result.matchingSummary.rangeEnd}`
+      ?`Base consultada: ${result.matchingSummary.receberLoaded} receber | ${result.matchingSummary.pagarLoaded} pagar | período ${result.matchingSummary.rangeStart} até ${result.matchingSummary.rangeEnd}`
       : "";
-  const dedupeSummary = result && Number(result.duplicatesRemoved || 0) > 0 ? `Duplicados removidos no OFX: ${result.duplicatesRemoved}` : "";
+  const dedupeSummary = result && Number(result.duplicatesRemoved || 0) > 0 ?`Duplicados removidos no OFX: ${result.duplicatesRemoved}` : "";
   const currentSummary = summarizeByBank(getAllConciliationTransactions(result));
   const accumulatedSummary = summarizeByBank(state.ofxAccumulated);
   const config = state.reconciliationForm;
   const catalogsLoaded = Object.values(catalogs).some((items) => Array.isArray(items) && items.length);
   const catalogStatus = state.reconciliationCatalogError
-    ? `<p class="conc-config-note error">${escapeHtml(state.reconciliationCatalogError)}</p>`
+    ?`<p class="conc-config-note error">${escapeHtml(state.reconciliationCatalogError)}</p>`
     : catalogsLoaded
-      ? `<p class="conc-config-note">Os catálogos abaixo vêm da NodeAPI. A baixa só é enviada após sua confirmação.</p>`
+      ?`<p class="conc-config-note">Os catálogos abaixo vêm da NodeAPI. A baixa só é enviada após sua confirmação.</p>`
       : `<p class="conc-config-note">Carregando catálogos financeiros da NodeAPI...</p>`;
 
   byId("conciliacao-screen").innerHTML = `
-    <h3>Conciliação Bancária</h3>
-    <p>Importe OFX, revise os matches sugeridos e confirme manualmente as baixas que devem seguir para o TopManager.</p>
+    <div class="conciliacao-page">
+    <section class="conciliacao-hero">
+      <div class="conciliacao-hero-copy">
+        <span>Central operacional</span>
+        <h3>Central de Conciliação Bancária</h3>
+        <p>Importe OFX, revise matches e acompanhe divergências em um fluxo operacional financeiro.</p>
+      </div>
+      <div class="conciliacao-hero-status">
+        <strong>${conciliationSummary.imported}</strong>
+        <span>lançamentos importados</span>
+      </div>
+    </section>
 
-    <div class="toolbar">
-      <input type="file" id="ofx-file" accept=".ofx,.txt" multiple class="upload-input" />
-      <button id="process-ofx-btn" class="primary-btn">Processar OFX</button>
-      <button id="process-folder-ofx-btn" class="ghost-btn">Processar pasta /ofx</button>
-      <button id="accumulate-ofx-btn" class="ghost-btn" ${result ? "" : "disabled"}>Acumular resultado atual</button>
-      <button id="clear-accum-ofx-btn" class="ghost-btn" ${state.ofxAccumulated.length ? "" : "disabled"}>Limpar acumulado</button>
-      <button id="conc-export-csv" class="ghost-btn" ${result ? "" : "disabled"}>Exportar CSV</button>
-      <button id="conc-export-pdf" class="ghost-btn" ${result ? "" : "disabled"}>Exportar PDF</button>
-      <select id="bank-filter" class="upload-input">
-        <option value="ALL">Todos os bancos</option>
-        ${banks.map((bank) => `<option value="${bank}" ${state.conciliationBankFilter === bank ? "selected" : ""}>${bank}</option>`).join("")}
-      </select>
-      <strong>${stats}</strong>
-    </div>
-    ${fileSummary ? `<p>${fileSummary}</p>` : ""}
-    ${matchingSummary ? `<p>${matchingSummary}</p>` : ""}
-    ${dedupeSummary ? `<p>${dedupeSummary}</p>` : ""}
-    <section class="table-wrap" style="margin-bottom:12px;">
+    ${renderConciliacaoProcessingPanel({ banks, result, stats, fileSummary, matchingSummary, dedupeSummary })}
+    ${renderConciliacaoKpis(conciliationSummary)}
+
+    <section class="table-wrap conciliacao-summary-card">
       <h3>Resumo por banco (resultado atual)</h3>
       ${renderBankSummaryTable(currentSummary)}
     </section>
-    <section class="table-wrap" style="margin-bottom:12px;">
+    <section class="table-wrap conciliacao-summary-card">
       <h3>Resumo por banco (acumulado)</h3>
       ${renderBankSummaryTable(accumulatedSummary)}
     </section>
-    <section class="conc-config-card">
-      <div class="conc-config-header">
-        <div>
-          <h3>Baixa Manual</h3>
-          ${catalogStatus}
-        </div>
-        <div class="conc-config-metrics">
-          <span class="tag ok">Receber ${selectedReceberCount}</span>
-          <span class="tag warn">Pagar ${selectedPagarCount}</span>
-          <span class="tag neutral">${currency.format(selectedAmountTotal)}</span>
-        </div>
-      </div>
-      <div class="conc-config-grid">
-        <label class="conc-config-field">
-          <span>Organização ID</span>
-          <input id="conc-organizacao-id" class="upload-input" type="number" min="1" value="${escapeHtml(config.organizacaoId)}" />
-        </label>
-        <label class="conc-config-field">
-          <span>Depositário</span>
-          <select id="conc-depositario-id" class="upload-input">
-            ${buildCatalogOptions(catalogs.depositarios, config.depositarioId, "Selecione o depositário")}
-          </select>
-        </label>
-        <label class="conc-config-field">
-          <span>Tipo operação receber</span>
-          <select id="conc-tipo-operacao-receber-id" class="upload-input">
-            ${buildCatalogOptions(catalogs.tiposDeOperacao, config.tipoOperacaoReceberId, "Selecione para receber")}
-          </select>
-        </label>
-        <label class="conc-config-field">
-          <span>Tipo operação pagar</span>
-          <select id="conc-tipo-operacao-pagar-id" class="upload-input">
-            ${buildCatalogOptions(catalogs.tiposDeOperacao, config.tipoOperacaoPagarId, "Selecione para pagar")}
-          </select>
-        </label>
-        <label class="conc-config-field">
-          <span>Meio de pagamento</span>
-          <select id="conc-meio-pagamento-id" class="upload-input">
-            ${buildCatalogOptions(catalogs.meiosDePagamento, config.meioPagamentoId, "Selecione o meio")}
-          </select>
-        </label>
-        <label class="conc-config-field">
-          <span>Fonte de recursos</span>
-          <select id="conc-fonte-recursos-id" class="upload-input">
-            ${buildCatalogOptions(catalogs.fonteDeRecursos, config.fonteDeRecursosId, "Selecione a fonte")}
-          </select>
-        </label>
-      </div>
-    </section>
+    ${renderConciliacaoManualPanel({
+      catalogStatus,
+      config,
+      catalogs,
+      selectedReceberCount,
+      selectedPagarCount,
+      selectedAmountTotal
+    })}
 
-    <div class="conc-grid">
-      <section class="conc-column">
-        <div class="conc-header">
-          <h4>Sugestões de match</h4>
-          <div class="conc-actions">
-            <label class="conc-select-all"><input type="checkbox" id="conc-select-all" ${allVisibleSelected ? "checked" : ""} ${selectableVisible.length ? "" : "disabled"} /> Selecionar todos</label>
-            <button id="conc-submit-selected" class="ghost-btn" ${selectedTotalCount ? "" : "disabled"}>Confirmar baixa manual (${selectedTotalCount})</button>
-          </div>
-        </div>
-        <div class="column-list">${
-          result
-            ? conciliatedList
-                .map((tx) => {
-                  const key = getConciliationTxKey(tx);
-                  return txCard(tx, {
-                    selectable: !isConciliationSettled(tx),
-                    checked: state.selectedConciliationKeys.has(key),
-                    disabled: isConciliationSettled(tx),
-                    key
-                  });
-                })
-                .join("") || "<p>Sem itens</p>"
-            : "<p>Aguardando OFX</p>"
-        }</div>
-      </section>
-      <section class="conc-column">
-        <h4>A revisar</h4>
-        <div class="column-list">${result ? reviewList.map(txCard).join("") || "<p>Sem itens</p>" : "<p>Aguardando OFX</p>"}</div>
-      </section>
-      <section class="conc-column">
-        <h4>Divergente</h4>
-        <div class="column-list">${result ? divergentList.map(txCard).join("") || "<p>Sem itens</p>" : "<p>Aguardando OFX</p>"}</div>
-      </section>
+    <div class="conciliacao-pipeline">
+      ${renderConciliacaoPipelineColumn({
+        title: "Sugestões de match",
+        subtitle: "Match automático",
+        group: "conciliated",
+        transactions: result ?conciliatedList : [],
+        emptyTitle: result ?"Nenhum match sugerido" : "Processe um OFX para iniciar a conciliação",
+        emptyText: result ?"Quando houver correspondências confiáveis, elas aparecerão aqui." : "As sugestões de match serão listadas nesta coluna.",
+        actions: `
+          <label class="conc-select-all"><input type="checkbox" id="conc-select-all" ${allVisibleSelected ?"checked" : ""} ${selectableVisible.length ?"" : "disabled"} /> Selecionar todos</label>
+          <button id="conc-submit-selected" class="ghost-btn" ${selectedTotalCount ?"" : "disabled"}>Confirmar baixa manual (${selectedTotalCount})</button>
+        `,
+        renderItem: (tx) => {
+          const key = getConciliationTxKey(tx);
+          return txCard(tx, {
+            group: "conciliated",
+            selectable: !isConciliationSettled(tx),
+            checked: state.selectedConciliationKeys.has(key),
+            disabled: isConciliationSettled(tx),
+            key
+          });
+        }
+      })}
+      ${renderConciliacaoPipelineColumn({
+        title: "A revisar",
+        subtitle: "Revisão humana",
+        group: "review",
+        transactions: result ?reviewList : [],
+        emptyTitle: result ?"Nada pendente de revisão" : "Aguardando processamento",
+        emptyText: result ?"Lançamentos com baixa confiança serão enviados para esta etapa." : "Processe um arquivo OFX para identificar lançamentos que exigem revisão.",
+        renderItem: (tx) => txCard(tx, { group: "review" })
+      })}
+      ${renderConciliacaoPipelineColumn({
+        title: "Divergente",
+        subtitle: "Atenção crítica",
+        group: "divergent",
+        transactions: result ?divergentList : [],
+        emptyTitle: result ?"Nenhuma divergência encontrada" : "Nenhum lançamento encontrado",
+        emptyText: result ?"Diferenças financeiras ou ausência de match serão destacadas aqui." : "As divergências serão calculadas após a importação do OFX.",
+        renderItem: (tx) => txCard(tx, { group: "divergent" })
+      })}
     </div>
-    <section class="table-wrap" style="margin-top:12px;">
-      <h3>Histórico de Processamentos OFX</h3>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Job</th>
-              <th>Status</th>
-              <th>Criado em</th>
-              <th>Total</th>
-              <th>Conciliado</th>
-              <th>Ação</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              state.reconciliationJobs.length
-                ? state.reconciliationJobs
-                    .map(
-                      (job) => `
-                <tr>
-                  <td>${job.id}</td>
-                  <td><span class="tag ${job.status === "completed" ? "ok" : job.status === "failed" ? "bad" : "warn"}">${job.status}</span></td>
-                  <td>${parseDate(job.createdAt)}</td>
-                  <td>${job.result?.totals?.total ?? "-"}</td>
-                  <td>${job.result?.totals?.conciliated ?? "-"}</td>
-                  <td><button class="ghost-btn reprocess-btn" data-job="${job.id}">Reprocessar</button></td>
-                </tr>
-              `
-                    )
-                    .join("")
-                : `<tr><td colspan="6">Sem histórico ainda.</td></tr>`
-            }
-          </tbody>
-        </table>
-      </div>
-    </section>
+    ${renderConciliacaoHistory(state.reconciliationJobs)}
+    </div>
   `;
 
   byId("process-ofx-btn").addEventListener("click", processOfx);
@@ -1509,11 +1720,11 @@ function exportConciliation(format) {
     (state.ofxResult.groups[group] || []).map((tx) => ({
       grupo: group,
       banco: tx.bankName || "",
-      data: tx.postedAt ? new Date(tx.postedAt).toLocaleDateString("pt-BR") : "",
+      data: tx.postedAt ?new Date(tx.postedAt).toLocaleDateString("pt-BR") : "",
       descricao: tx.name || "",
       memo: tx.memo || "",
       valor: Number(tx.amount || 0),
-      match: tx.matched ? `${tx.matched.entityType}:${tx.matched.numeroDocumento || ""}` : tx.reason || ""
+      match: tx.matched ?`${tx.matched.entityType}:${tx.matched.numeroDocumento || ""}` : tx.reason || ""
     }))
   );
   const cols = [
@@ -1555,7 +1766,425 @@ const FICHA_STATUS_STYLE = {
   reprovada: "background:rgba(220,38,38,0.10);border:1px solid rgba(220,38,38,0.22);color:#dc2626;",
   aprovada_com_ressalvas: "background:rgba(217,119,6,0.10);border:1px solid rgba(217,119,6,0.22);color:#d97706;"
 };
+const FORMAS_PAGAMENTO_APROVADAS = [
+  { id: 1, nome: "Dinheiro" },
+  { id: 2, nome: "Cheque" },
+  { id: 3, nome: "Crédito em Conta" },
+  { id: 4, nome: "Débito em Conta" },
+  { id: 6, nome: "TED" },
+  { id: 8, nome: "Transferência" },
+  { id: 11, nome: "Gerenciador" },
+  { id: 12, nome: "Depósito em Conta" },
+  { id: 13, nome: "Cartão" },
+  { id: 14, nome: "Pix" },
+  { id: 15, nome: "Arquivo" }
+];
+const PRAZOS_APROVADOS = window.PRAZOS_APROVADOS || [];
+function normalizeOptionName(value) {
+  return String(value || "").trim().toLowerCase();
+}
 
+function hasOptionByName(options, value) {
+  const normalized = normalizeOptionName(value);
+  return options.some((item) => normalizeOptionName(item.nome) === normalized);
+}
+
+function renderFormaPagamentoOptions(selectedValue) {
+  const selected = String(selectedValue || "").trim();
+  const selectedNormalized = normalizeOptionName(selected);
+
+  const legacyOption =
+    selected && !hasOptionByName(FORMAS_PAGAMENTO_APROVADAS, selected)
+      ?`<option value="${escapeHtml(selected)}" selected>Valor atual - ${escapeHtml(selected)}</option>`
+      : "";
+
+  return `
+    <option value="">Selecione...</option>
+    ${legacyOption}
+    ${FORMAS_PAGAMENTO_APROVADAS.map((item) => {
+      const isSelected = normalizeOptionName(item.nome) === selectedNormalized ?"selected" : "";
+      return `<option value="${escapeHtml(item.nome)}" ${isSelected}>${item.id} - ${escapeHtml(item.nome)}</option>`;
+    }).join("")}
+  `;
+}
+function renderPrazoDatalistOptions() {
+  return PRAZOS_APROVADOS.map((item) => {
+    const label = item.prazoMedio ?`${item.id} - ${item.nome} (${item.prazoMedio} dias)` : `${item.id} - ${item.nome}`;
+    return `<option value="${escapeHtml(item.nome)}" label="${escapeHtml(label)}"></option>`;
+  }).join("");
+}
+
+let prazoAutocompleteCleanup = null;
+let formaPagamentoAutocompleteCleanup = null;
+
+function normalizePrazoSearch(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function filterPrazosAprovados(query) {
+  const normalizedQuery = normalizePrazoSearch(query);
+  const matches = PRAZOS_APROVADOS.filter((item) => {
+    if (!normalizedQuery) return true;
+    const searchSpace = normalizePrazoSearch(`${item.id} ${item.nome} ${item.prazoMedio ?? ""}`);
+    return searchSpace.includes(normalizedQuery);
+  });
+  return {
+    total: matches.length,
+    results: matches.slice(0, 20)
+  };
+}
+
+function renderPrazoAutocompleteOptions(results, total, activeIndex = 0) {
+  if (!results.length) {
+    return `
+      <div class="fc-prazo-autocomplete-empty">
+        Nenhum prazo encontrado. Você ainda pode digitar manualmente.
+      </div>
+    `;
+  }
+
+  const optionsHtml = results
+    .map((item, index) => {
+      const meta = [`ID ${item.id}`];
+      if (item.prazoMedio !== undefined && item.prazoMedio !== null) {
+        meta.push(`Prazo médio ${item.prazoMedio} dias`);
+      }
+      return `
+        <button
+          type="button"
+          class="fc-prazo-autocomplete-option ${index === activeIndex ? "fc-prazo-autocomplete-active" : ""}"
+          data-index="${index}"
+          role="option"
+          aria-selected="${index === activeIndex ? "true" : "false"}"
+        >
+          <span class="fc-prazo-autocomplete-title">${escapeHtml(item.nome)}</span>
+          <span class="fc-prazo-autocomplete-meta">${escapeHtml(meta.join(" · "))}</span>
+        </button>
+      `;
+    })
+    .join("");
+
+  const footer =
+    total > results.length
+      ?`<div class="fc-prazo-autocomplete-footer">Mostrando ${results.length} de ${total} resultados</div>`
+      : "";
+
+  return `${optionsHtml}${footer}`;
+}
+
+function selectPrazoAprovado(input, item) {
+  if (!input || !item) return;
+  input.value = item.nome;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function filterFormasPagamento(query) {
+  const normalizedQuery = normalizePrazoSearch(query);
+  const matches = FORMAS_PAGAMENTO_APROVADAS.filter((item) => {
+    if (!normalizedQuery) return true;
+    const searchSpace = normalizePrazoSearch(`${item.id} ${item.nome}`);
+    return searchSpace.includes(normalizedQuery);
+  });
+  return {
+    total: matches.length,
+    results: matches.slice(0, 20)
+  };
+}
+
+function renderFormaPagamentoAutocompleteOptions(results, total, activeIndex = 0) {
+  if (!results.length) {
+    return `
+      <div class="fc-prazo-autocomplete-empty">
+        Nenhuma forma de pagamento encontrada. Você ainda pode digitar manualmente.
+      </div>
+    `;
+  }
+
+  const optionsHtml = results
+    .map(
+      (item, index) => `
+        <button
+          type="button"
+          class="fc-prazo-autocomplete-option ${index === activeIndex ? "fc-prazo-autocomplete-active" : ""}"
+          data-index="${index}"
+          role="option"
+          aria-selected="${index === activeIndex ? "true" : "false"}"
+        >
+          <span class="fc-prazo-autocomplete-title">${escapeHtml(item.nome)}</span>
+          <span class="fc-prazo-autocomplete-meta">ID ${escapeHtml(item.id)}</span>
+        </button>
+      `
+    )
+    .join("");
+
+  const footer =
+    total > results.length
+      ?`<div class="fc-prazo-autocomplete-footer">Mostrando ${results.length} de ${total} resultados</div>`
+      : "";
+
+  return `${optionsHtml}${footer}`;
+}
+
+function selectFormaPagamento(input, item) {
+  if (!input || !item) return;
+  input.value = item.nome;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function setupPrazoAutocomplete() {
+  if (prazoAutocompleteCleanup) {
+    prazoAutocompleteCleanup();
+    prazoAutocompleteCleanup = null;
+  }
+
+  const input = byId("ficha-analise-prazo-estimado");
+  if (!input || input.disabled) return;
+
+  input.removeAttribute("list");
+  input.setAttribute("autocomplete", "off");
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "fc-prazo-autocomplete";
+  input.parentNode.insertBefore(wrapper, input);
+  wrapper.appendChild(input);
+
+  const menu = document.createElement("div");
+  menu.className = "fc-prazo-autocomplete-menu hidden";
+  menu.setAttribute("role", "listbox");
+  wrapper.appendChild(menu);
+
+  let currentResults = [];
+  let currentTotal = 0;
+  let activeIndex = 0;
+
+  const closeMenu = () => {
+    menu.classList.add("hidden");
+  };
+
+  const openMenu = () => {
+    menu.classList.remove("hidden");
+  };
+
+  const renderMenu = () => {
+    const filtered = filterPrazosAprovados(input.value);
+    currentResults = filtered.results;
+    currentTotal = filtered.total;
+    activeIndex = currentResults.length ?Math.min(activeIndex, currentResults.length - 1) : 0;
+    menu.innerHTML = renderPrazoAutocompleteOptions(currentResults, currentTotal, activeIndex);
+    openMenu();
+  };
+
+  const updateActive = (nextIndex) => {
+    if (!currentResults.length) return;
+    activeIndex = (nextIndex + currentResults.length) % currentResults.length;
+    menu.innerHTML = renderPrazoAutocompleteOptions(currentResults, currentTotal, activeIndex);
+    const activeOption = menu.querySelector(`[data-index="${activeIndex}"]`);
+    if (activeOption) {
+      activeOption.scrollIntoView({ block: "nearest" });
+    }
+  };
+
+  const handleInput = () => {
+    activeIndex = 0;
+    renderMenu();
+  };
+
+  const handleFocus = () => {
+    activeIndex = 0;
+    renderMenu();
+  };
+
+  const handleKeydown = (event) => {
+    if (event.key === "Escape") {
+      closeMenu();
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (menu.classList.contains("hidden")) renderMenu();
+      updateActive(activeIndex + 1);
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      if (menu.classList.contains("hidden")) renderMenu();
+      updateActive(activeIndex - 1);
+      return;
+    }
+
+    if (event.key === "Enter" && !menu.classList.contains("hidden") && currentResults[activeIndex]) {
+      event.preventDefault();
+      selectPrazoAprovado(input, currentResults[activeIndex]);
+      closeMenu();
+    }
+  };
+
+  const handleMenuMouseDown = (event) => {
+    const option = event.target.closest(".fc-prazo-autocomplete-option");
+    if (!option) return;
+    event.preventDefault();
+    const index = Number(option.dataset.index);
+    const item = currentResults[index];
+    selectPrazoAprovado(input, item);
+    closeMenu();
+  };
+
+  const handleDocumentClick = (event) => {
+    if (!wrapper.contains(event.target)) {
+      closeMenu();
+    }
+  };
+
+  input.addEventListener("input", handleInput);
+  input.addEventListener("focus", handleFocus);
+  input.addEventListener("keydown", handleKeydown);
+  menu.addEventListener("mousedown", handleMenuMouseDown);
+  document.addEventListener("click", handleDocumentClick);
+
+  prazoAutocompleteCleanup = () => {
+    input.removeEventListener("input", handleInput);
+    input.removeEventListener("focus", handleFocus);
+    input.removeEventListener("keydown", handleKeydown);
+    menu.removeEventListener("mousedown", handleMenuMouseDown);
+    document.removeEventListener("click", handleDocumentClick);
+    if (wrapper.parentNode) {
+      wrapper.parentNode.insertBefore(input, wrapper);
+      wrapper.remove();
+    }
+  };
+}
+
+function setupFormaPagamentoAutocomplete() {
+  if (formaPagamentoAutocompleteCleanup) {
+    formaPagamentoAutocompleteCleanup();
+    formaPagamentoAutocompleteCleanup = null;
+  }
+
+  const input = byId("ficha-analise-forma-pagamento");
+  if (!input || input.disabled) return;
+
+  input.setAttribute("autocomplete", "off");
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "fc-prazo-autocomplete";
+  input.parentNode.insertBefore(wrapper, input);
+  wrapper.appendChild(input);
+
+  const menu = document.createElement("div");
+  menu.className = "fc-prazo-autocomplete-menu hidden";
+  menu.setAttribute("role", "listbox");
+  wrapper.appendChild(menu);
+
+  let currentResults = [];
+  let currentTotal = 0;
+  let activeIndex = 0;
+
+  const closeMenu = () => {
+    menu.classList.add("hidden");
+  };
+
+  const openMenu = () => {
+    menu.classList.remove("hidden");
+  };
+
+  const renderMenu = () => {
+    const filtered = filterFormasPagamento(input.value);
+    currentResults = filtered.results;
+    currentTotal = filtered.total;
+    activeIndex = currentResults.length ?Math.min(activeIndex, currentResults.length - 1) : 0;
+    menu.innerHTML = renderFormaPagamentoAutocompleteOptions(currentResults, currentTotal, activeIndex);
+    openMenu();
+  };
+
+  const updateActive = (nextIndex) => {
+    if (!currentResults.length) return;
+    activeIndex = (nextIndex + currentResults.length) % currentResults.length;
+    menu.innerHTML = renderFormaPagamentoAutocompleteOptions(currentResults, currentTotal, activeIndex);
+    const activeOption = menu.querySelector(`[data-index="${activeIndex}"]`);
+    if (activeOption) {
+      activeOption.scrollIntoView({ block: "nearest" });
+    }
+  };
+
+  const handleInput = () => {
+    activeIndex = 0;
+    renderMenu();
+  };
+
+  const handleFocus = () => {
+    activeIndex = 0;
+    renderMenu();
+  };
+
+  const handleKeydown = (event) => {
+    if (event.key === "Escape") {
+      closeMenu();
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (menu.classList.contains("hidden")) renderMenu();
+      updateActive(activeIndex + 1);
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      if (menu.classList.contains("hidden")) renderMenu();
+      updateActive(activeIndex - 1);
+      return;
+    }
+
+    if (event.key === "Enter" && !menu.classList.contains("hidden") && currentResults[activeIndex]) {
+      event.preventDefault();
+      selectFormaPagamento(input, currentResults[activeIndex]);
+      closeMenu();
+    }
+  };
+
+  const handleMenuMouseDown = (event) => {
+    const option = event.target.closest(".fc-prazo-autocomplete-option");
+    if (!option) return;
+    event.preventDefault();
+    const index = Number(option.dataset.index);
+    const item = currentResults[index];
+    selectFormaPagamento(input, item);
+    closeMenu();
+  };
+
+  const handleDocumentClick = (event) => {
+    if (!wrapper.contains(event.target)) {
+      closeMenu();
+    }
+  };
+
+  input.addEventListener("input", handleInput);
+  input.addEventListener("focus", handleFocus);
+  input.addEventListener("keydown", handleKeydown);
+  menu.addEventListener("mousedown", handleMenuMouseDown);
+  document.addEventListener("click", handleDocumentClick);
+
+  formaPagamentoAutocompleteCleanup = () => {
+    input.removeEventListener("input", handleInput);
+    input.removeEventListener("focus", handleFocus);
+    input.removeEventListener("keydown", handleKeydown);
+    menu.removeEventListener("mousedown", handleMenuMouseDown);
+    document.removeEventListener("click", handleDocumentClick);
+    if (wrapper.parentNode) {
+      wrapper.parentNode.insertBefore(input, wrapper);
+      wrapper.remove();
+    }
+  };
+}
 function buildFichaClienteSkeleton() {
   return `
     <div class="fc-skeleton">
@@ -1577,51 +2206,310 @@ function buildFichaClienteSkeleton() {
   `;
 }
 
-function buildFichaScrollView(rows) {
+function getFichaClienteDisplayName(row) {
+  return row.razaoSocial || row.nomeFantasia || "Cliente sem nome";
+}
+
+function getFichaClienteInitials(row) {
+  return (
+    getFichaClienteDisplayName(row)
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "?"
+  );
+}
+
+function renderFichaStatusBadge(status) {
+  const normalizedStatus = status || "pendente";
+  const label = FICHA_STATUS_LABELS[normalizedStatus] || "Pendente";
+  return `<span class="fc-status-badge ${escapeHtml(normalizedStatus)}">${escapeHtml(label)}</span>`;
+}
+
+function renderFichaTableEmptyState() {
   return `
-    <div class="fc-accordion">
-      ${rows
-        .map((row) => {
-          const status = row.statusAnalise || "pendente";
-          const isFinal = ["aprovada", "reprovada", "aprovada_com_ressalvas"].includes(status);
-          const actionStyle = isFinal
-            ? "background:#f1f5f9;border-color:#d1dce8;color:#475569;"
-            : "background:#0145F2;border-color:#0145F2;color:#ffffff;";
-          const contact = [row.contatoNome, row.contatoTelefone].filter(Boolean).join(" / ") || "-";
-          const sub = [row.vendedor, row.tipo, parseDate(row.data)].filter(Boolean).join(" · ");
-          // eslint-disable-next-line eqeqeq
-          const isSelected = state.fichaClienteSelected != null && String(state.fichaClienteSelected.id) === String(row.id);
-          return `
-          <div class="fc-acc-item${isSelected ? " open" : ""}" data-id="${row.id}">
-            <div class="fc-acc-head">
-              <div class="fc-acc-info">
-                <span class="fc-acc-name">${escapeHtml(row.razaoSocial || row.nomeFantasia || "-")}</span>
-                <span class="fc-acc-sub">${escapeHtml(sub)}</span>
-              </div>
-              <span style="display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:0.03em;text-transform:uppercase;white-space:nowrap;flex-shrink:0;${FICHA_STATUS_STYLE[status] || FICHA_STATUS_STYLE.pendente}">${escapeHtml(FICHA_STATUS_LABELS[status] || "Pendente")}</span>
-              <svg class="fc-acc-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <div class="fc-acc-body">
-              <div class="fc-acc-grid">
-                <div class="fc-acc-field"><small>ID</small><strong>${row.id}</strong></div>
-                <div class="fc-acc-field"><small>Data</small><strong>${parseDate(row.data)}</strong></div>
-                <div class="fc-acc-field"><small>Tipo</small><strong>${escapeHtml(row.tipo || "-")}</strong></div>
-                <div class="fc-acc-field"><small>Vendedor</small><strong>${escapeHtml(row.vendedor || "-")}</strong></div>
-                <div class="fc-acc-field"><small>Nome Fantasia</small><strong>${escapeHtml(row.nomeFantasia || "-")}</strong></div>
-                <div class="fc-acc-field"><small>CNPJ/CPF</small><strong>${escapeHtml(row.cnpJouCPF || "-")}</strong></div>
-                <div class="fc-acc-field"><small>Contato</small><strong>${escapeHtml(contact)}</strong></div>
-                <div class="fc-acc-field"><small>E-mail</small><strong>${escapeHtml(row.emailCliente || "-")}</strong></div>
-                <div class="fc-acc-field"><small>Anexos</small><strong>${row.arquivosAnexados.length}</strong></div>
-              </div>
-              ${isSelected
-                ? buildFichaClienteDetailPanel(state.fichaClienteSelected)
-                : `<button class="ghost-btn ficha-open-btn" data-id="${row.id}" style="border-radius:12px;padding:8px 18px;font-weight:800;${actionStyle}">${isFinal ? "Ver resultado" : "Analisar"}</button>`}
-            </div>
-          </div>`;
-        })
+    <div class="fc-empty-state">
+      <strong>Nenhuma ficha encontrada</strong>
+      <span>Ajuste os filtros e tente novamente.</span>
+    </div>
+  `;
+}
+
+function getConciliacaoAmountTotal(transactions) {
+  return (transactions || []).reduce((acc, tx) => acc + Math.abs(Number(tx.amount || 0)), 0);
+}
+
+function summarizeConciliacao(result) {
+  const groups = result?.groups || {};
+  const conciliated = groups.conciliated || [];
+  const all = getAllConciliationTransactions(result);
+  return {
+    files: Number(result?.totals?.files || 0),
+    imported: Number(result?.totals?.total || all.length || 0),
+    conciliated: Number(result?.totals?.conciliated || conciliated.length || 0),
+    review: Number(result?.totals?.review || (groups.review || []).length || 0),
+    divergent: Number(result?.totals?.divergent || (groups.divergent || []).length || 0),
+    conciliatedAmount: getConciliacaoAmountTotal(conciliated),
+    duplicatesRemoved: Number(result?.duplicatesRemoved || 0)
+  };
+}
+
+function renderConciliacaoKpis(summary) {
+  const items = [
+    { label: "Importados", value: summary.imported, hint: `${summary.files} arquivo(s)`, tone: "neutral" },
+    { label: "Conciliados", value: summary.conciliated, hint: "Matches sugeridos", tone: "success" },
+    { label: "A revisar", value: summary.review, hint: "Revisão humana", tone: "warning" },
+    { label: "Divergentes", value: summary.divergent, hint: "Exigem atenção", tone: "danger" },
+    { label: "Valor conciliado", value: currency.format(summary.conciliatedAmount), hint: "Soma absoluta", tone: "money" }
+  ];
+
+  return `
+    <section class="conciliacao-kpi-grid" aria-label="Indicadores operacionais da conciliação">
+      ${items
+        .map(
+          (item) => `
+            <article class="conciliacao-kpi-card ${item.tone}">
+              <span>${escapeHtml(item.label)}</span>
+              <strong>${escapeHtml(item.value)}</strong>
+              <small>${escapeHtml(item.hint)}</small>
+            </article>
+          `
+        )
         .join("")}
+    </section>
+  `;
+}
+
+function renderConciliacaoEmptyState(title, text, tone = "neutral") {
+  return `
+    <div class="conciliacao-empty-state ${tone}">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(text)}</span>
+    </div>
+  `;
+}
+
+function renderConciliacaoProcessingPanel({ banks, result, stats, fileSummary, matchingSummary, dedupeSummary }) {
+  return `
+    <section class="conciliacao-processing-panel">
+      <div class="conciliacao-processing-copy">
+        <span>Processamento OFX</span>
+        <h4>Importação e leitura bancária</h4>
+        <p>Carregue arquivos, processe a pasta operacional e acompanhe o status da conciliação em tempo real.</p>
+      </div>
+      <div class="conciliacao-processing-controls">
+        <div class="conciliacao-file-row">
+          <input type="file" id="ofx-file" accept=".ofx,.txt" multiple class="upload-input conciliacao-file-input" />
+          <button id="process-ofx-btn" class="primary-btn conciliacao-primary-action">Processar OFX</button>
+        </div>
+        <div class="conciliacao-action-row">
+          <button id="process-folder-ofx-btn" class="ghost-btn">Processar pasta /ofx</button>
+          <button id="accumulate-ofx-btn" class="ghost-btn" ${result ?"" : "disabled"}>Acumular resultado atual</button>
+          <button id="clear-accum-ofx-btn" class="ghost-btn" ${state.ofxAccumulated.length ?"" : "disabled"}>Limpar acumulado</button>
+          <button id="conc-export-csv" class="ghost-btn" ${result ?"" : "disabled"}>Exportar CSV</button>
+          <button id="conc-export-pdf" class="ghost-btn" ${result ?"" : "disabled"}>Exportar PDF</button>
+          <select id="bank-filter" class="upload-input">
+            <option value="ALL">Todos os bancos</option>
+            ${banks.map((bank) => `<option value="${escapeHtml(bank)}" ${state.conciliationBankFilter === bank ?"selected" : ""}>${escapeHtml(bank)}</option>`).join("")}
+          </select>
+        </div>
+      </div>
+      <div class="conciliacao-processing-status">
+        <strong>${escapeHtml(stats)}</strong>
+        ${fileSummary ?`<p>${fileSummary}</p>` : ""}
+        ${matchingSummary ?`<p>${escapeHtml(matchingSummary)}</p>` : ""}
+        ${dedupeSummary ?`<p>${escapeHtml(dedupeSummary)}</p>` : ""}
+      </div>
+    </section>
+  `;
+}
+
+
+function renderConciliacaoMetricChip(label, value, tone = "neutral") {
+  return `
+    <span class="conciliacao-manual-chip ${tone}">
+      <small>${escapeHtml(label)}</small>
+      <strong>${escapeHtml(value)}</strong>
+    </span>
+  `;
+}
+
+function renderConciliacaoManualPanel({ catalogStatus, config, catalogs, selectedReceberCount, selectedPagarCount, selectedAmountTotal }) {
+  return `
+    <section class="conc-config-card conciliacao-manual-panel">
+      <div class="conc-config-header conciliacao-manual-header">
+        <div>
+          <span class="conciliacao-manual-eyebrow">Parametrização operacional</span>
+          <h3>Baixa Manual</h3>
+          ${catalogStatus}
+        </div>
+        <div class="conc-config-metrics conciliacao-manual-metrics">
+          ${renderConciliacaoMetricChip("Receber", selectedReceberCount, "success")}
+          ${renderConciliacaoMetricChip("Pagar", selectedPagarCount, "warning")}
+          ${renderConciliacaoMetricChip("Selecionado", currency.format(selectedAmountTotal), "money")}
+        </div>
+      </div>
+      <div class="conciliacao-manual-grid">
+        <fieldset class="conciliacao-manual-group context">
+          <legend>Contexto operacional</legend>
+          <label class="conc-config-field conciliacao-manual-field">
+            <span>Organização ID</span>
+            <input id="conc-organizacao-id" class="upload-input" type="number" min="1" value="${escapeHtml(config.organizacaoId)}" />
+          </label>
+        </fieldset>
+        <fieldset class="conciliacao-manual-group receber">
+          <legend>Recebimento</legend>
+          <label class="conc-config-field conciliacao-manual-field">
+            <span>Depositário</span>
+            <select id="conc-depositario-id" class="upload-input">
+              ${buildCatalogOptions(catalogs.depositarios, config.depositarioId, "Selecione o depositário")}
+            </select>
+          </label>
+          <label class="conc-config-field conciliacao-manual-field">
+            <span>Tipo operação receber</span>
+            <select id="conc-tipo-operacao-receber-id" class="upload-input">
+              ${buildCatalogOptions(catalogs.tiposDeOperacao, config.tipoOperacaoReceberId, "Selecione para receber")}
+            </select>
+          </label>
+        </fieldset>
+        <fieldset class="conciliacao-manual-group pagar">
+          <legend>Pagamento</legend>
+          <label class="conc-config-field conciliacao-manual-field">
+            <span>Tipo operação pagar</span>
+            <select id="conc-tipo-operacao-pagar-id" class="upload-input">
+              ${buildCatalogOptions(catalogs.tiposDeOperacao, config.tipoOperacaoPagarId, "Selecione para pagar")}
+            </select>
+          </label>
+          <label class="conc-config-field conciliacao-manual-field">
+            <span>Meio de pagamento</span>
+            <select id="conc-meio-pagamento-id" class="upload-input">
+              ${buildCatalogOptions(catalogs.meiosDePagamento, config.meioPagamentoId, "Selecione o meio")}
+            </select>
+          </label>
+          <label class="conc-config-field conciliacao-manual-field">
+            <span>Fonte de recursos</span>
+            <select id="conc-fonte-recursos-id" class="upload-input">
+              ${buildCatalogOptions(catalogs.fonteDeRecursos, config.fonteDeRecursosId, "Selecione a fonte")}
+            </select>
+          </label>
+        </fieldset>
+      </div>
+    </section>
+  `;
+}
+
+function getConciliacaoJobStatus(job) {
+  const status = String(job?.status || "").toLowerCase();
+  if (["completed", "complete", "success", "done"].includes(status)) return { label: "Concluído", tone: "success" };
+  if (["failed", "error", "erro"].includes(status)) return { label: "Erro", tone: "danger" };
+  if (["processing", "running", "pending", "queued"].includes(status)) return { label: "Processando", tone: "warning" };
+  if (status.includes("reprocess")) return { label: "Reprocessado", tone: "neutral" };
+  return { label: job?.status || "Pendente", tone: "neutral" };
+}
+
+function renderConciliacaoHistory(jobs) {
+  return `
+    <section class="conciliacao-history-panel">
+      <div class="conciliacao-history-header">
+        <div>
+          <span>Auditoria OFX</span>
+          <h3>Histórico de Processamentos OFX</h3>
+          <p>Acompanhe os processamentos recentes e reexecute leituras quando necessário.</p>
+        </div>
+        <strong>${jobs.length}</strong>
+      </div>
+      <div class="conciliacao-history-list">
+        ${
+          jobs.length
+            ? jobs
+                .map((job) => {
+                  const status = getConciliacaoJobStatus(job);
+                  return `
+                    <article class="conciliacao-history-item ${status.tone}">
+                      <div class="conciliacao-history-main">
+                        <span class="conciliacao-history-job">Job ${escapeHtml(job.id)}</span>
+                        <strong>${escapeHtml(status.label)}</strong>
+                        <small>Criado em ${escapeHtml(parseDate(job.createdAt))}</small>
+                      </div>
+                      <div class="conciliacao-history-stats">
+                        <span><small>Total</small><strong>${escapeHtml(job.result?.totals?.total ?? "-")}</strong></span>
+                        <span><small>Conciliado</small><strong>${escapeHtml(job.result?.totals?.conciliated ?? "-")}</strong></span>
+                      </div>
+                      <div class="conciliacao-history-actions">
+                        ${renderConciliacaoBadge(status.label, status.tone)}
+                        <button class="ghost-btn reprocess-btn conciliacao-history-action" data-job="${escapeHtml(job.id)}">Reprocessar</button>
+                      </div>
+                    </article>
+                  `;
+                })
+                .join("")
+            : renderConciliacaoEmptyState("Nenhum processamento disponível", "O histórico será preenchido após o primeiro processamento OFX.", "neutral")
+        }
+      </div>
+    </section>
+  `;
+}
+
+function buildFichaScrollView(rows) {
+  if (!rows.length) {
+    return renderFichaTableEmptyState();
+  }
+
+  return `
+    <div class="fc-table-shell data-grid-shell ficha-delivery-table-shell">
+      <div class="fc-table-scroll data-grid-scroll ficha-delivery-table-scroll">
+        <table class="data-grid fc-premium-table ficha-delivery-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Cliente</th>
+              <th>Documento / Tipo</th>
+              <th>Data da ficha</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+              .map((row) => {
+                const status = row.statusAnalise || "pendente";
+                const displayName = getFichaClienteDisplayName(row);
+                const initials = getFichaClienteInitials(row);
+
+                return `
+                  <tr class="data-grid-row fc-premium-row">
+                    <td class="fc-id-cell">#${escapeHtml(row.id)}</td>
+                    <td>
+                      <div class="fc-client-cell">
+                        <div class="fc-client-avatar">${escapeHtml(initials)}</div>
+                        <div class="fc-client-copy">
+                          <strong class="fc-client-name">${escapeHtml(displayName)}</strong>
+                          <span class="fc-client-doc">${escapeHtml(row.cnpJouCPF || "-")}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="fc-doc-type">${escapeHtml(row.tipo || "-")}</div>
+                      <div class="fc-doc-vendor">${escapeHtml(row.vendedor || "-")}</div>
+                    </td>
+                    <td class="fc-date-cell">${escapeHtml(parseDate(row.data))}</td>
+                    <td>${renderFichaStatusBadge(status)}</td>
+                    <td>
+                      <div class="fc-row-actions">
+                        <button class="data-grid-action fc-table-action ficha-open-btn" data-id="${escapeHtml(row.id)}" type="button">Ver análise</button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              })
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+
+      ${state.fichaClienteSelected ?buildFichaClienteDetailPanel(state.fichaClienteSelected, { context: "table-split" }) : ""}
     </div>
   `;
 }
@@ -1632,22 +2520,56 @@ function buildFichaCardsView(rows) {
       ${rows
         .map((row) => {
           const status = row.statusAnalise || "pendente";
+          const displayName = getFichaClienteDisplayName(row);
+          const initials = getFichaClienteInitials(row);
           return `
-          <div class="fc-card-item ficha-open-btn" data-id="${row.id}" tabindex="0" role="button">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
-              <span style="font-size:11px;color:#94a3b8;font-weight:700;">#${row.id}</span>
-              <span style="display:inline-flex;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;${FICHA_STATUS_STYLE[status] || FICHA_STATUS_STYLE.pendente}">${escapeHtml(FICHA_STATUS_LABELS[status] || "Pendente")}</span>
+          <article class="fc-card-item ficha-open-btn" data-id="${escapeHtml(row.id)}" tabindex="0" role="button">
+            <div class="fc-card-top">
+              <div class="fc-card-avatar">${escapeHtml(initials)}</div>
+              ${renderFichaStatusBadge(status)}
             </div>
-            <div class="fc-card-name">${escapeHtml(row.razaoSocial || row.nomeFantasia || "-")}</div>
-            <div class="fc-card-sub">${escapeHtml(row.nomeFantasia && row.razaoSocial ? row.nomeFantasia : (row.cnpJouCPF || "-"))}</div>
+            <div class="fc-card-body">
+              <strong class="fc-card-name">${escapeHtml(displayName)}</strong>
+              <span class="fc-card-sub">${escapeHtml(row.cnpJouCPF || "-")}</span>
+            </div>
             <div class="fc-card-meta">
-              ${row.tipo ? `<span style="padding:3px 9px;border-radius:8px;background:#f1f5f9;border:1px solid #e2eaf0;font-size:11px;color:#475569;">${escapeHtml(row.tipo)}</span>` : ""}
-              ${row.vendedor ? `<small>${escapeHtml(row.vendedor)}</small>` : ""}
-              <small style="margin-left:auto;">${parseDate(row.data)}</small>
+              <div class="fc-card-meta-item">
+                <span>Tipo</span>
+                <strong>${escapeHtml(row.tipo || "-")}</strong>
+              </div>
+              <div class="fc-card-meta-item">
+                <span>Vendedor</span>
+                <strong>${escapeHtml(row.vendedor || "-")}</strong>
+              </div>
+              <div class="fc-card-meta-item">
+                <span>Data</span>
+                <strong>${escapeHtml(parseDate(row.data))}</strong>
+              </div>
             </div>
-          </div>`;
+          </article>`;
         })
         .join("")}
+    </div>
+  `;
+}
+
+function renderFichaClienteCardsModal(ficha) {
+  if (!ficha) return "";
+  const displayName = getFichaClienteDisplayName(ficha);
+  return `
+    <div class="fc-modal-overlay">
+      <section class="fc-modal-shell" role="dialog" aria-modal="true" aria-label="Análise da ficha">
+        <header class="fc-modal-header">
+          <div>
+            <strong>Análise da ficha #${escapeHtml(ficha.id)}</strong>
+            <span>${escapeHtml(displayName)}</span>
+          </div>
+          <button class="fc-modal-close ficha-modal-close" type="button" aria-label="Fechar modal">×</button>
+        </header>
+        <div class="fc-modal-body fc-modal-body-split">
+          ${buildFichaClienteDetailPanel(ficha, { context: "modal-split" })}
+        </div>
+      </section>
     </div>
   `;
 }
@@ -1659,16 +2581,25 @@ function buildFichaStackView(rows) {
         .map(
           (row, i) => {
             const status = row.statusAnalise || "pendente";
+            const displayName = getFichaClienteDisplayName(row);
+            const initials = getFichaClienteInitials(row);
+            const isSelected =
+              state.fichaClienteSelected != null && String(state.fichaClienteSelected.id) === String(row.id);
             return `
-          <div class="fc-stack-row ficha-open-btn" data-id="${row.id}" tabindex="0" role="button">
-            <span class="fc-stack-num">${i + 1}</span>
+          <div class="fc-stack-row ficha-open-btn${isSelected ?" active" : ""}" data-id="${escapeHtml(row.id)}" tabindex="0" role="button">
+            <span class="fc-stack-num">#${i + 1}</span>
+            <div class="fc-stack-avatar">${escapeHtml(initials)}</div>
             <div class="fc-stack-main">
-              <div class="fc-stack-name">${escapeHtml(row.razaoSocial || row.nomeFantasia || "-")}</div>
-              <div class="fc-stack-info">${escapeHtml([row.cnpJouCPF, row.tipo, row.vendedor].filter(Boolean).join(" · ") || "-")}</div>
+              <div class="fc-stack-name">${escapeHtml(displayName)}</div>
+              <div class="fc-stack-doc">${escapeHtml(row.cnpJouCPF || "-")}</div>
+              <div class="fc-stack-context">
+                <span>${escapeHtml(row.tipo || "-")}</span>
+                <span>${escapeHtml(row.vendedor || "-")}</span>
+              </div>
             </div>
             <div class="fc-stack-meta">
-              <span style="font-size:11px;color:#94a3b8;">${parseDate(row.data)}</span>
-              <span style="display:inline-flex;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.03em;white-space:nowrap;${FICHA_STATUS_STYLE[status] || FICHA_STATUS_STYLE.pendente}">${escapeHtml(FICHA_STATUS_LABELS[status] || "Pendente")}</span>
+              <span class="fc-stack-date">${escapeHtml(parseDate(row.data))}</span>
+              ${renderFichaStatusBadge(status)}
             </div>
           </div>`;
           }
@@ -1677,21 +2608,43 @@ function buildFichaStackView(rows) {
     </div>
   `;
 }
-
 function buildFichaClienteTable(rows) {
   if (!rows.length) {
     return `<p style="padding:24px 0;color:var(--text-soft);">Nenhuma ficha encontrada. Use os filtros acima e clique em Consultar.</p>`;
   }
   const view = state.fichaClienteView || "scroll";
-  if (view === "cards") return buildFichaCardsView(rows);
-  if (view === "stack") return buildFichaStackView(rows);
+  if (view === "cards") {
+    return `
+      ${buildFichaCardsView(rows)}
+      ${state.fichaClienteSelected ?renderFichaClienteCardsModal(state.fichaClienteSelected) : ""}
+    `;
+  }
+  if (view === "stack") {
+    return `
+      <div class="fc-stack-drawer-layout">
+        <div class="fc-stack-drawer-list">
+          ${buildFichaStackView(rows)}
+        </div>
+        <div class="fc-stack-drawer-detail">
+          ${
+            state.fichaClienteSelected
+              ?buildFichaClienteDetailPanel(state.fichaClienteSelected, { context: "stack" })
+              : `<div class="fc-empty-detail">
+                  <h3>Selecione uma ficha</h3>
+                  <p>Clique em um cliente da lista para visualizar a análise financeira.</p>
+                 </div>`
+          } 
+        </div>
+      </div>
+    `;
+  } 
   return buildFichaScrollView(rows);
 }
 
 function buildFichaClienteDetailSection(title, items) {
   return `
-    <section style="margin-bottom:18px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+    <section class="fc-detail-section" style="margin-bottom:18px;">
+      <div class="fc-detail-section-header" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
         <div style="width:8px;height:8px;border-radius:999px;background:#0145F2;box-shadow:0 0 0 6px rgba(1,69,242,0.12);"></div>
         <h4 style="margin:0;font-size:15px;letter-spacing:0.01em;">${title}</h4>
       </div>
@@ -1711,7 +2664,7 @@ function buildFichaClienteDetailSection(title, items) {
   `;
 }
 
-function buildFichaClienteDetailPanel(ficha) {
+function buildFichaClienteDetailPanel(ficha, options = {}) {
   if (!ficha) return "";
   const anexos = ficha.arquivosAnexados || [];
   const referenciasContato = ficha.referenciasComerciais?.contato || {};
@@ -1753,9 +2706,13 @@ function buildFichaClienteDetailPanel(ficha) {
     { value: "reprovada", label: "Reprovada" },
     { value: "aprovada_com_ressalvas", label: "Aprovada com ressalvas" }
   ];
+  const context = options.context || "default";
+  const isSplitContext = context === "split";
+  const detailPanelClass = isSplitContext ? "fc-detail-panel-split" : "fc-detail-panel-stack";
+  const analysisPaneStyle = isSplitContext ? "min-width:0;" : "min-width:0;position:sticky;top:0;margin-top:30px;";
 
-  return `
-    <article class="table-wrap" style="margin-top:16px;padding:22px;border-radius:24px;background:#ffffff;border:1px solid #d1dce8;box-shadow:0 4px 20px rgba(1,69,242,0.06);">
+
+  const headerHtml = `
       <div style="display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap;">
         <div style="display:flex;flex-direction:column;gap:10px;">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -1780,8 +2737,8 @@ function buildFichaClienteDetailPanel(ficha) {
         </div>
         <button id="ficha-close-detail" class="ghost-btn" style="border-radius:14px;padding:10px 14px;">Fechar</button>
       </div>
-      <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(320px,0.9fr);gap:18px;align-items:start;">
-        <div style="min-width:0;">
+  `;
+  const dataPaneHtml = `
       ${buildFichaClienteDetailSection("Dados Gerais", [
         { label: "Data", value: parseDate(ficha.data) },
         { label: "Tipo", value: ficha.tipo },
@@ -1829,15 +2786,198 @@ function buildFichaClienteDetailPanel(ficha) {
         <h4 style="margin:0 0 8px 0;">Anexos</h4>
         ${
           anexos.length
-            ? `<div style="display:grid;gap:8px;">${anexos
+            ?`<div style="display:grid;gap:8px;">${anexos
                 .map(
                   (item) => `
-                    <div style="padding:14px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                      <div style="min-width:0;">
-                        <strong style="display:block;word-break:break-word;">${escapeHtml(item.nome || "Anexo")}</strong>
-                        ${item.assetPath ? `<div style="color:var(--text-soft);font-size:11px;word-break:break-all;margin-top:2px;">${escapeHtml(item.assetPath)}</div>` : ""}
-                      </div>
-                      ${item.assetPath ? `<button onclick="downloadAnexo(${JSON.stringify(item.assetPath)},${JSON.stringify(item.nome||'anexo')})" style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;background:#0145F2;color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;">&#8595; Baixar</button>` : ""}
+                    <div style="padding:14px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;">
+                      <strong>${escapeHtml(item.nome || "Anexo")}</strong>
+                      <div style="color:var(--text-soft);font-size:12px;">${escapeHtml(item.assetPath || "")}</div>
+                    </div>
+                  `
+                )
+                .join("")}</div>`
+            : "<p>Nenhum anexo enviado.</p>"
+        }
+      </div>
+  `;
+  const analysisPaneHtml = `
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:14px;">
+          <div>
+            <small style="display:block;color:#0145F2;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">Resultado da análise</small>
+            <h4 style="margin:0;font-size:20px;letter-spacing:-0.02em;">Análise Financeira</h4>
+          </div>
+          <span style="display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:${statusTone.bg};border:1px solid ${statusTone.border};color:${statusTone.text};font-size:11px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;">${escapeHtml(statusLabelMap[currentStatus] || "Em análise")}</span>
+        </div>
+        <div class="fc-analysis-summary-stack" style="display:grid;gap:10px;margin-bottom:14px;">
+          <div class="fc-analysis-summary-item" style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2eaf0;">
+            <small style="display:block;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Valor</small>
+            <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.valorPedido || "-")}</strong>
+          </div>
+          <div class="fc-analysis-summary-item" style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2eaf0;">
+            <small style="display:block;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Pagamento</small>
+            <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.formaPagamento || "-")}</strong>
+          </div>
+          <div class="fc-analysis-summary-item" style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2eaf0;">
+            <small style="display:block;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Prazo</small>
+            <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.prazoEstimado || "-")}</strong>
+          </div>
+        </div>
+        <div class="toolbar" style="padding:0;">
+          <label style="width:100%;">Status da análise
+            <select id="ficha-analise-status" class="upload-input" ${isFinal ?"disabled" : ""}>
+              ${analysisOptions
+                .map((option) => `<option value="${option.value}" ${ficha.statusAnalise === option.value ?"selected" : ""}>${option.label}</option>`)
+                .join("")}
+            </select>
+          </label>
+        </div>
+        <label style="display:block;margin-top:12px;">
+          <span style="display:block;margin-bottom:6px;">Observação da análise</span>
+          <textarea id="ficha-analise-observacao" class="upload-input" style="min-height:132px;width:100%;border-radius:16px;" ${isFinal ?"disabled" : ""}>${escapeHtml(ficha.observacaoAnalise || "")}</textarea>
+        </label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px;">
+          <label>Valor do pedido aprovado
+            <input id="ficha-analise-valor-pedido" class="upload-input" value="${escapeHtml(pagamentoAnalise.valorPedido || "")}" ${isFinal ?"disabled" : ""} />
+          </label>
+          <label>Forma de pagamento aprovada
+            <input
+              id="ficha-analise-forma-pagamento"
+              class="upload-input"
+              value="${escapeHtml(pagamentoAnalise.formaPagamento || "")}"
+              ${isFinal ?"disabled" : ""}
+            />
+          </label>
+          <label>Prazo estimado aprovado
+            <input
+              id="ficha-analise-prazo-estimado"
+              class="upload-input"
+              value="${escapeHtml(pagamentoAnalise.prazoEstimado || "")}"
+              ${isFinal ?"disabled" : ""}
+            />
+          </label>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px;">
+          <div>
+            <small style="display:block;color:var(--text-soft);">Analisado por</small>
+            <div>${escapeHtml(ficha.analisadoPor || "-")}</div>
+          </div>
+          <div>
+            <small style="display:block;color:var(--text-soft);">Analisado em</small>
+            <div>${escapeHtml(ficha.analisadoEm ?new Date(ficha.analisadoEm).toLocaleString("pt-BR") : "-")}</div>
+          </div>
+        </div>
+        <div style="margin-top:14px;">
+          ${
+            isFinal
+              ?`<div style="padding:14px 16px;border-radius:16px;background:#f1f5f9;border:1px solid #e2eaf0;text-align:center;font-weight:700;color:var(--text-soft);">Análise concluída. Esta ficha não pode mais ser alterada.</div>`
+              : `<button id="ficha-save-analise" class="primary-btn" style="width:100%;padding:14px 18px;border-radius:16px;" ${state.fichaClienteSaving ?"disabled" : ""}>${state.fichaClienteSaving ?"Salvando..." : "Salvar análise"}</button>`
+          }
+        </div>
+  `;
+
+  if (context === "table-split" || context === "modal-split") {
+    const splitWrapperClass = context === "modal-split" ? "fc-detail-wrapper-modal-split" : "fc-detail-wrapper-split";
+    const splitPanelClass = context === "modal-split" ? "fc-detail-panel-modal-split" : "fc-detail-panel-table-split";
+    return `
+    <article class="table-wrap fc-detail-wrapper ${splitWrapperClass}" data-detail-context="${escapeHtml(context)}" style="margin-top:16px;padding:22px;border-radius:24px;background:#ffffff;border:1px solid #d1dce8;box-shadow:0 4px 20px rgba(1,69,242,0.06);">
+      ${headerHtml}
+      <div class="fc-detail-panel fc-detail-panel-split ${splitPanelClass}">
+        <div class="fc-detail-data-pane fc-detail-scroll-pane">
+          <div class="fc-detail-pane-card fc-detail-data-card">
+            ${dataPaneHtml}
+          </div>
+        </div>
+        <aside class="fc-detail-analysis-pane fc-detail-scroll-pane">
+          <div class="fc-detail-pane-card fc-detail-analysis-card">
+            ${analysisPaneHtml}
+          </div>
+        </aside>
+      </div>
+    </article>
+  `;
+  }
+
+  return `
+    <article class="table-wrap fc-detail-wrapper ${detailPanelClass}" data-detail-context="${escapeHtml(context)}" style="margin-top:16px;padding:22px;border-radius:24px;background:#ffffff;border:1px solid #d1dce8;box-shadow:0 4px 20px rgba(1,69,242,0.06);">
+      <div style="display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap;">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <h3 style="margin:0;font-size:24px;letter-spacing:-0.02em;">Análise da Ficha #${ficha.id}</h3>
+            <span style="display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:${statusTone.bg};border:1px solid ${statusTone.border};color:${statusTone.text};font-size:12px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;">${escapeHtml(statusLabelMap[currentStatus] || "Em análise")}</span>
+          </div>
+          <p style="margin:0;color:var(--text-soft);font-size:15px;max-width:720px;">${escapeHtml(ficha.razaoSocial || ficha.nomeFantasia || "Sem razão social")}</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="padding:10px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2eaf0;">
+              <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Vendedor</small>
+              <strong style="font-size:13px;">${escapeHtml(ficha.vendedor || "-")}</strong>
+            </div>
+            <div style="padding:10px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2eaf0;">
+              <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Data da ficha</small>
+              <strong style="font-size:13px;">${escapeHtml(parseDate(ficha.data) || "-")}</strong>
+            </div>
+            <div style="padding:10px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2eaf0;">
+              <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Tipo</small>
+              <strong style="font-size:13px;">${escapeHtml(ficha.tipo || "-")}</strong>
+            </div>
+          </div>
+        </div>
+        <button id="ficha-close-detail" class="ghost-btn" style="border-radius:14px;padding:10px 14px;">Fechar</button>
+      </div>
+      <div class="fc-detail-panel ${detailPanelClass}">
+        <div class="fc-detail-data-pane fc-detail-scroll-pane">
+      ${buildFichaClienteDetailSection("Dados Gerais", [
+        { label: "Data", value: parseDate(ficha.data) },
+        { label: "Tipo", value: ficha.tipo },
+        { label: "Vendedor", value: ficha.vendedor },
+        { label: "Vendedor ID", value: ficha.vendedorId },
+        { label: "Razão Social", value: ficha.razaoSocial },
+        { label: "Nome Fantasia", value: ficha.nomeFantasia },
+        { label: "CNPJ/CPF", value: ficha.cnpJouCPF },
+        { label: "Inscrição Estadual", value: ficha.inscricaoEstadual }
+      ])}
+      ${buildFichaClienteDetailSection("Endereço", [
+        { label: "Endereço", value: ficha.endereco?.enderecoCompleto || "" },
+        { label: "Bairro", value: ficha.endereco?.bairro || "" },
+        { label: "Complemento", value: ficha.endereco?.complemento || "" },
+        { label: "CEP", value: ficha.endereco?.cep || "" },
+        { label: "Cidade", value: ficha.endereco?.cidade || "" },
+        { label: "Estado", value: ficha.endereco?.estado || "" }
+      ])}
+      ${buildFichaClienteDetailSection("Contato", [
+        { label: "Nome", value: ficha.contato?.nome || "" },
+        { label: "Telefone", value: ficha.contato?.telefone || "" }
+      ])}
+      ${buildFichaClienteDetailSection("E-mails", [
+        { label: "Cliente", value: ficha.emails?.cliente || "" },
+        { label: "Assistente Comercial", value: ficha.emails?.assistenteComercial || "" },
+        { label: "Representante Comercial", value: ficha.emails?.representanteComercial || "" },
+        { label: "Gestor Financeiro", value: ficha.emails?.gestorFinanceiro || "" },
+        { label: "Gestor Comercial", value: ficha.emails?.gestorComercial || "" }
+      ])}
+      ${buildFichaClienteDetailSection("Referências Comerciais", [
+        { label: "Razão Social", value: ficha.referenciasComerciais?.razaoSocial || "" },
+        { label: "Contato", value: referenciasContato.nome || "" },
+        { label: "Telefone", value: referenciasContato.telefone || "" }
+      ])}
+      ${buildFichaClienteDetailSection("Pagamento", [
+        { label: "Valor Pedido", value: ficha.pagamento?.valorPedido || "" },
+        { label: "Forma de Pagamento", value: ficha.pagamento?.formaPagamento || "" },
+        { label: "Prazo Estimado", value: ficha.pagamento?.prazoEstimado || "" }
+      ])}
+      <div style="margin-bottom:16px;">
+        <h4 style="margin:0 0 8px 0;">Parecer do Representante</h4>
+        <div style="padding:16px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;white-space:pre-wrap;line-height:1.6;">${escapeHtml(ficha.parecer || "-")}</div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <h4 style="margin:0 0 8px 0;">Anexos</h4>
+        ${
+          anexos.length
+            ?`<div style="display:grid;gap:8px;">${anexos
+                .map(
+                  (item) => `
+                    <div style="padding:14px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;">
+                      <strong>${escapeHtml(item.nome || "Anexo")}</strong>
+                      <div style="color:var(--text-soft);font-size:12px;">${escapeHtml(item.assetPath || "")}</div>
                     </div>
                   `
                 )
@@ -1846,7 +2986,7 @@ function buildFichaClienteDetailPanel(ficha) {
         }
       </div>
         </div>
-        <aside style="min-width:0;position:sticky;top:0;">
+        <aside class="fc-detail-analysis-pane fc-detail-scroll-pane" style="${analysisPaneStyle}">
       <div style="padding:18px;border:1px solid #d1dce8;border-radius:22px;background:#f8fafc;box-shadow:0 4px 16px rgba(1,69,242,0.07);">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:14px;">
           <div>
@@ -1871,26 +3011,36 @@ function buildFichaClienteDetailPanel(ficha) {
         </div>
         <div class="toolbar" style="padding:0;">
           <label style="width:100%;">Status da análise
-            <select id="ficha-analise-status" class="upload-input" ${isFinal ? "disabled" : ""}>
+            <select id="ficha-analise-status" class="upload-input" ${isFinal ?"disabled" : ""}>
               ${analysisOptions
-                .map((option) => `<option value="${option.value}" ${ficha.statusAnalise === option.value ? "selected" : ""}>${option.label}</option>`)
+                .map((option) => `<option value="${option.value}" ${ficha.statusAnalise === option.value ?"selected" : ""}>${option.label}</option>`)
                 .join("")}
             </select>
           </label>
         </div>
         <label style="display:block;margin-top:12px;">
           <span style="display:block;margin-bottom:6px;">Observação da análise</span>
-          <textarea id="ficha-analise-observacao" class="upload-input" style="min-height:132px;width:100%;border-radius:16px;" ${isFinal ? "disabled" : ""}>${escapeHtml(ficha.observacaoAnalise || "")}</textarea>
+          <textarea id="ficha-analise-observacao" class="upload-input" style="min-height:132px;width:100%;border-radius:16px;" ${isFinal ?"disabled" : ""}>${escapeHtml(ficha.observacaoAnalise || "")}</textarea>
         </label>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px;">
           <label>Valor do pedido aprovado
-            <input id="ficha-analise-valor-pedido" class="upload-input" value="${escapeHtml(pagamentoAnalise.valorPedido || "")}" ${isFinal ? "disabled" : ""} />
+            <input id="ficha-analise-valor-pedido" class="upload-input" value="${escapeHtml(pagamentoAnalise.valorPedido || "")}" ${isFinal ?"disabled" : ""} />
           </label>
           <label>Forma de pagamento aprovada
-            <input id="ficha-analise-forma-pagamento" class="upload-input" value="${escapeHtml(pagamentoAnalise.formaPagamento || "")}" ${isFinal ? "disabled" : ""} />
+            <input
+              id="ficha-analise-forma-pagamento"
+              class="upload-input"
+              value="${escapeHtml(pagamentoAnalise.formaPagamento || "")}"
+              ${isFinal ?"disabled" : ""}
+            />
           </label>
           <label>Prazo estimado aprovado
-            <input id="ficha-analise-prazo-estimado" class="upload-input" value="${escapeHtml(pagamentoAnalise.prazoEstimado || "")}" ${isFinal ? "disabled" : ""} />
+            <input
+              id="ficha-analise-prazo-estimado"
+              class="upload-input"
+              value="${escapeHtml(pagamentoAnalise.prazoEstimado || "")}"
+              ${isFinal ?"disabled" : ""}
+            />
           </label>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px;">
@@ -1900,14 +3050,14 @@ function buildFichaClienteDetailPanel(ficha) {
           </div>
           <div>
             <small style="display:block;color:var(--text-soft);">Analisado em</small>
-            <div>${escapeHtml(ficha.analisadoEm ? new Date(ficha.analisadoEm).toLocaleString("pt-BR") : "-")}</div>
+            <div>${escapeHtml(ficha.analisadoEm ?new Date(ficha.analisadoEm).toLocaleString("pt-BR") : "-")}</div>
           </div>
         </div>
         <div style="margin-top:14px;">
           ${
             isFinal
-              ? `<div style="padding:14px 16px;border-radius:16px;background:#f1f5f9;border:1px solid #e2eaf0;text-align:center;font-weight:700;color:var(--text-soft);">Análise concluída. Esta ficha não pode mais ser alterada.</div>`
-              : `<button id="ficha-save-analise" class="primary-btn" style="width:100%;padding:14px 18px;border-radius:16px;" ${state.fichaClienteSaving ? "disabled" : ""}>${state.fichaClienteSaving ? "Salvando..." : "Salvar análise"}</button>`
+              ?`<div style="padding:14px 16px;border-radius:16px;background:#f1f5f9;border:1px solid #e2eaf0;text-align:center;font-weight:700;color:var(--text-soft);">Análise concluída. Esta ficha não pode mais ser alterada.</div>`
+              : `<button id="ficha-save-analise" class="primary-btn" style="width:100%;padding:14px 18px;border-radius:16px;" ${state.fichaClienteSaving ?"disabled" : ""}>${state.fichaClienteSaving ?"Salvando..." : "Salvar análise"}</button>`
           }
         </div>
       </div>
@@ -1921,12 +3071,12 @@ function renderFichaCliente() {
   const filter = state.fichaClienteFilter;
   const view = state.fichaClienteView || "scroll";
   const errorBlock = state.fichaClienteError
-    ? `<p style="color:#dc2626;font-weight:600;margin:0 0 14px;">${state.fichaClienteError}</p>`
+    ?`<p style="color:#dc2626;font-weight:600;margin:0 0 14px;">${state.fichaClienteError}</p>`
     : "";
 
   byId("ficha-cliente-screen").innerHTML = `
-    <article class="table-wrap list-full-height">
-      <div class="fc-header">
+    <article class="table-wrap list-full-height ficha-delivery-page">
+      <div class="fc-header ficha-delivery-header">
         <h3 style="margin:0;">Ficha de Cliente</h3>
         <div class="fc-mode-switcher">
           ${[
@@ -1934,11 +3084,11 @@ function renderFichaCliente() {
             { v: "cards", label: "Cards" },
             { v: "stack", label: "Lista" }
           ]
-            .map(({ v, label }) => `<button class="fc-view-btn${view === v ? " active" : ""}" data-view="${v}">${label}</button>`)
+            .map(({ v, label }) => `<button class="fc-view-btn${view === v ?" active" : ""}" data-view="${v}">${label}</button>`)
             .join("")}
         </div>
       </div>
-      <div class="fc-toolbar">
+      <div class="fc-toolbar ficha-delivery-toolbar">
         <div class="fc-search-wrap">
           <input id="ficha-search" type="search" placeholder="Buscar razão social, fantasia ou CNPJ/CPF..." value="${escapeHtml(filter.search)}" />
           <kbd>⌘K</kbd>
@@ -1948,14 +3098,14 @@ function renderFichaCliente() {
         <input id="ficha-tipo" class="upload-input" style="height:40px;max-width:120px;" placeholder="Tipo" value="${escapeHtml(filter.tipo)}" />
         <input id="ficha-vendedor-id" class="upload-input" style="height:40px;max-width:130px;" placeholder="Vendedor ID" value="${escapeHtml(filter.vendedorId)}" />
         <select id="ficha-limit" class="upload-input" style="height:40px;">
-          ${["20", "50", "100", "200"].map((v) => `<option value="${v}"${filter.limit === v ? " selected" : ""}>${v}</option>`).join("")}
+          ${["20", "50", "100", "200"].map((v) => `<option value="${v}"${filter.limit === v ?" selected" : ""}>${v}</option>`).join("")}
         </select>
         <button id="ficha-consultar-btn" class="primary-btn" style="height:40px;">Consultar</button>
       </div>
       ${errorBlock}
       ${
         state.fichaClienteLoading
-          ? buildFichaClienteSkeleton()
+          ?buildFichaClienteSkeleton()
           : `<p style="margin:0 0 14px;font-size:13px;color:var(--text-soft);"><strong style="color:var(--text-strong);">${state.fichaCliente.length}</strong> ficha(s) encontrada(s).</p>
              ${buildFichaClienteTable(state.fichaCliente)}`
       }
@@ -2022,9 +3172,18 @@ function renderFichaCliente() {
   });
 
   if (state.fichaClienteSelected) {
-    byId("ficha-close-detail").addEventListener("click", () => {
-      state.fichaClienteSelected = null;
-      renderFichaCliente();
+    const closeDetailButton = byId("ficha-close-detail");
+    if (closeDetailButton) {
+      closeDetailButton.addEventListener("click", () => {
+        state.fichaClienteSelected = null;
+        renderFichaCliente();
+      });
+    }
+    document.querySelectorAll(".ficha-modal-close").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.fichaClienteSelected = null;
+        renderFichaCliente();
+      });
     });
     const saveAnaliseButton = byId("ficha-save-analise");
     if (saveAnaliseButton) {
@@ -2042,13 +3201,15 @@ function renderFichaCliente() {
       });
     }
   }
+  setupFormaPagamentoAutocomplete();
+  setupPrazoAutocomplete();
 }
 
 async function fetchJson(url, options = {}) {
   await ensureSessionFresh();
   const headers = {
     "Content-Type": "application/json",
-    ...(state.token ? { Authorization: `Bearer ${state.token}` } : {}),
+    ...(state.token ?{ Authorization: `Bearer ${state.token}` } : {}),
     ...(options.headers || {})
   };
   const response = await fetch(url, {
@@ -2083,7 +3244,7 @@ async function processOfx() {
 
   const response = await fetch("/api/reconciliation/ofx", {
     method: "POST",
-    headers: state.token ? { Authorization: `Bearer ${state.token}` } : {},
+    headers: state.token ?{ Authorization: `Bearer ${state.token}` } : {},
     body: formData
   });
 
@@ -2127,10 +3288,10 @@ async function loadReconciliationCatalogs() {
   try {
     const payload = await fetchJson("/api/reconciliation/catalogs");
     state.reconciliationCatalogs = {
-      fonteDeRecursos: Array.isArray(payload.fonteDeRecursos) ? payload.fonteDeRecursos : [],
-      depositarios: Array.isArray(payload.depositarios) ? payload.depositarios : [],
-      tiposDeOperacao: Array.isArray(payload.tiposDeOperacao) ? payload.tiposDeOperacao : [],
-      meiosDePagamento: Array.isArray(payload.meiosDePagamento) ? payload.meiosDePagamento : []
+      fonteDeRecursos: Array.isArray(payload.fonteDeRecursos) ?payload.fonteDeRecursos : [],
+      depositarios: Array.isArray(payload.depositarios) ?payload.depositarios : [],
+      tiposDeOperacao: Array.isArray(payload.tiposDeOperacao) ?payload.tiposDeOperacao : [],
+      meiosDePagamento: Array.isArray(payload.meiosDePagamento) ?payload.meiosDePagamento : []
     };
     state.reconciliationCatalogError = "";
   } catch (error) {
@@ -2214,7 +3375,7 @@ async function loadReconciliationJobs() {
 async function loadAccumulatedOfx() {
   try {
     const data = await fetchJson("/api/reconciliation/accumulated");
-    state.ofxAccumulated = Array.isArray(data) ? data : [];
+    state.ofxAccumulated = Array.isArray(data) ?data : [];
   } catch (_error) {
     state.ofxAccumulated = [];
   }
@@ -2228,14 +3389,14 @@ async function addAccumulatedOfxRemote(transactions) {
       transactions
     })
   });
-  state.ofxAccumulated = Array.isArray(payload.items) ? payload.items : state.ofxAccumulated;
+  state.ofxAccumulated = Array.isArray(payload.items) ?payload.items : state.ofxAccumulated;
 }
 
 async function clearAccumulatedOfxRemote() {
   const payload = await fetchJson("/api/reconciliation/accumulated", {
     method: "DELETE"
   });
-  state.ofxAccumulated = Array.isArray(payload.items) ? payload.items : [];
+  state.ofxAccumulated = Array.isArray(payload.items) ?payload.items : [];
 }
 
 async function reprocessJob(jobId) {
@@ -2331,7 +3492,7 @@ async function saveFichaClienteAnalise({ id, statusAnalise, observacaoAnalise, p
     });
     const updatedRow = mapFichaClienteRow(response.row || {}, 0);
     state.fichaClienteSelected = updatedRow;
-    state.fichaCliente = state.fichaCliente.map((item) => (item.id === updatedRow.id ? { ...item, ...updatedRow } : item));
+    state.fichaCliente = state.fichaCliente.map((item) => (item.id === updatedRow.id ?{ ...item, ...updatedRow } : item));
     renderFichaCliente();
   } finally {
     state.fichaClienteSaving = false;
@@ -2441,7 +3602,7 @@ function bindEvents() {
       const sortKey = sortBtn.getAttribute("data-sort");
       if (!tableType || !sortKey || !state.tablePrefs[tableType]) return;
       if (state.tablePrefs[tableType].sortBy === sortKey) {
-        state.tablePrefs[tableType].sortDir = state.tablePrefs[tableType].sortDir === "asc" ? "desc" : "asc";
+        state.tablePrefs[tableType].sortDir = state.tablePrefs[tableType].sortDir === "asc" ?"desc" : "asc";
       } else {
         state.tablePrefs[tableType].sortBy = sortKey;
         state.tablePrefs[tableType].sortDir = "asc";
