@@ -67,6 +67,10 @@ const state = {
       minValue: "",
       maxValue: "",
       vencidosOnly: false
+    },
+    fichaCliente: {
+      sortBy: "data",
+      sortDir: "desc"
     }
   },
   activeScreen: "receber",
@@ -173,7 +177,8 @@ function loadPreferences() {
       state.tablePrefs = {
         ...state.tablePrefs,
         receber: { ...state.tablePrefs.receber, ...(parsed.tablePrefs.receber || {}) },
-        pagar: { ...state.tablePrefs.pagar, ...(parsed.tablePrefs.pagar || {}) }
+        pagar: { ...state.tablePrefs.pagar, ...(parsed.tablePrefs.pagar || {}) },
+        fichaCliente: { ...state.tablePrefs.fichaCliente, ...(parsed.tablePrefs.fichaCliente || {}) }
       };
     }
   } catch (_error) {
@@ -2537,10 +2542,48 @@ function renderConciliacaoHistory(jobs) {
   `;
 }
 
+function getFichaClienteSortValue(row, sortBy) {
+  if (sortBy === "id") return Number(row.id) || 0;
+  if (sortBy === "razaoSocial") return getFichaClienteDisplayName(row);
+  if (sortBy === "tipo") return `${row.tipo || ""} ${row.vendedor || ""}`;
+  if (sortBy === "statusAnalise") return row.statusAnalise || "";
+  if (sortBy === "vendedor") return row.vendedor || "";
+  if (sortBy === "data") {
+    const value = String(row.data || "").trim();
+    const brDate = value.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (brDate) return new Date(`${brDate[3]}-${brDate[2]}-${brDate[1]}T00:00:00`).getTime();
+    return toComparable(value);
+  }
+  return toComparable(row[sortBy]);
+}
+
+function applyFichaClienteSort(rows) {
+  const prefs = state.tablePrefs.fichaCliente || { sortBy: "data", sortDir: "desc" };
+  const sortBy = prefs.sortBy || "data";
+  const sortDir = prefs.sortDir === "asc" ?"asc" : "desc";
+  return [...rows].sort((a, b) => {
+    const av = toComparable(getFichaClienteSortValue(a, sortBy));
+    const bv = toComparable(getFichaClienteSortValue(b, sortBy));
+    if (av === bv) {
+      const aid = Number(a.id) || 0;
+      const bid = Number(b.id) || 0;
+      return sortDir === "asc" ?aid - bid : bid - aid;
+    }
+    const cmp = av > bv ?1 : -1;
+    return sortDir === "asc" ?cmp : -cmp;
+  });
+}
+
 function buildFichaScrollView(rows) {
   if (!rows.length) {
     return renderFichaTableEmptyState();
   }
+  const prefs = state.tablePrefs.fichaCliente;
+  const sortedRows = applyFichaClienteSort(rows);
+  const sortable = (label, key) =>
+    `<button class="th-sort data-grid-sort ${prefs.sortBy === key ?"active" : ""}" data-table="fichaCliente" data-sort="${key}">
+      ${label} ${prefs.sortBy === key ?(prefs.sortDir === "asc" ?"&uarr;" : "&darr;") : ""}
+    </button>`;
 
   return `
     <div class="fc-table-shell data-grid-shell ficha-delivery-table-shell">
@@ -2548,16 +2591,16 @@ function buildFichaScrollView(rows) {
         <table class="data-grid fc-premium-table ficha-delivery-table">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Cliente</th>
-              <th>Documento / Tipo</th>
-              <th>Data da ficha</th>
-              <th>Status</th>
+              <th>${sortable("#", "id")}</th>
+              <th>${sortable("Cliente", "razaoSocial")}</th>
+              <th>${sortable("Documento / Tipo", "tipo")}</th>
+              <th>${sortable("Data da ficha", "data")}</th>
+              <th>${sortable("Status", "statusAnalise")}</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody>
-            ${rows
+            ${sortedRows
               .map((row) => {
                 const status = row.statusAnalise || "pendente";
                 const displayName = getFichaClienteDisplayName(row);
@@ -3695,6 +3738,7 @@ function bindEvents() {
       savePreferences();
       if (tableType === "receber") renderReceber();
       if (tableType === "pagar") renderPagar();
+      if (tableType === "fichaCliente") renderFichaCliente();
     }
   });
 
