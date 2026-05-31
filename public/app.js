@@ -1304,6 +1304,7 @@ function renderConciliacaoPipelineCard(tx, options = {}) {
   const { selectable = false, checked = false, disabled = false, key = "", group = "conciliated" } = options || {};
   const tone = getConciliacaoPipelineTone(group);
   const score = getConciliacaoMatchScore(tx, group);
+  const settlementTone = tx?.settlement?.status === "success" ?"is-settled" : tx?.settlement?.status === "error" ?"has-error" : "";
   const amount = Number(tx.amount || 0);
   const direction = amount >= 0 ?"Crédito" : "Débito";
   const directionTone = amount >= 0 ?"success" : "warning";
@@ -1346,7 +1347,7 @@ function renderConciliacaoPipelineCard(tx, options = {}) {
     : "";
 
   return `
-    <article class="tx conciliacao-card ${tone}">
+    <article class="tx conciliacao-card ${tone} ${settlementTone}">
       ${selectBlock}
       <div class="conciliacao-card-top">
         <div class="conciliacao-card-bank">
@@ -1457,8 +1458,8 @@ function renderBankSummaryTable(rows) {
     );
   }
   return `
-    <div class="table-scroll">
-      <table>
+    <div class="table-scroll conciliacao-bank-summary-scroll">
+      <table class="conciliacao-bank-summary-table">
         <thead>
           <tr>
             <th>Banco</th>
@@ -1472,19 +1473,25 @@ function renderBankSummaryTable(rows) {
         </thead>
         <tbody>
           ${rows
-            .map(
-              (row) => `
+            .map((row) => {
+              const saldoTone = Number(row.total || 0) >= 0 ?"positive" : "negative";
+              return `
             <tr>
-              <td>${escapeHtml(row.bankName)}</td>
-              <td>${row.count}</td>
-              <td>${row.credits}</td>
-              <td>${row.debits}</td>
-              <td>${currency.format(row.creditAmount || 0)}</td>
-              <td>${currency.format(row.debitAmount || 0)}</td>
-              <td>${currency.format(row.total || 0)}</td>
+              <td>
+                <div class="conciliacao-bank-name">
+                  <strong>${escapeHtml(row.bankName)}</strong>
+                  <span>Resumo operacional</span>
+                </div>
+              </td>
+              <td><span class="conciliacao-bank-count">${row.count}</span></td>
+              <td><span class="conciliacao-bank-chip credit">${row.credits}</span></td>
+              <td><span class="conciliacao-bank-chip debit">${row.debits}</span></td>
+              <td class="conciliacao-bank-money credit">${currency.format(row.creditAmount || 0)}</td>
+              <td class="conciliacao-bank-money debit">${currency.format(row.debitAmount || 0)}</td>
+              <td class="conciliacao-bank-balance ${saldoTone}">${currency.format(row.total || 0)}</td>
             </tr>
-          `
-            )
+          `;
+            })
             .join("")}
         </tbody>
       </table>
@@ -1519,6 +1526,11 @@ function renderConciliacao() {
   const selectedPagarCount = selectedTransactions.filter((tx) => tx?.matched?.entityType === "pagar").length;
   const selectedAmountTotal = selectedTransactions.reduce((acc, tx) => acc + Math.abs(Number(tx.amount || 0)), 0);
   const conciliationSummary = summarizeConciliacao(result);
+  const operationalState = getConciliacaoOperationalState({
+    result,
+    selectedTotalCount,
+    bankFilter: state.conciliationBankFilter
+  });
 
   const stats = result
     ?`Arquivos ${result.totals.files} | Total ${result.totals.total} | Conciliado ${result.totals.conciliated} | Revisar ${result.totals.review} | Divergente ${result.totals.divergent}`
@@ -1556,10 +1568,15 @@ function renderConciliacao() {
         <span>Central operacional</span>
         <h3>Central de Conciliação Bancária</h3>
         <p>Importe OFX, revise matches e acompanhe divergências em um fluxo operacional financeiro.</p>
+        <div class="conciliacao-hero-state ${operationalState.tone}">
+          <strong>${escapeHtml(operationalState.label)}</strong>
+          <span>${escapeHtml(operationalState.text)}</span>
+        </div>
       </div>
       <div class="conciliacao-hero-status">
         <strong>${conciliationSummary.imported}</strong>
         <span>lançamentos importados</span>
+        <small>${escapeHtml(operationalState.detail)}</small>
       </div>
     </section>
 
@@ -1630,6 +1647,7 @@ function renderConciliacao() {
   `;
 
   byId("process-ofx-btn").addEventListener("click", processOfx);
+  setupConciliacaoFilePicker();
   byId("process-folder-ofx-btn").addEventListener("click", processFolderOfx);
   byId("accumulate-ofx-btn").addEventListener("click", async () => {
     try {
@@ -2291,7 +2309,41 @@ function renderConciliacaoEmptyState(title, text, tone = "neutral") {
   `;
 }
 
+function getConciliacaoOperationalState({ result, selectedTotalCount = 0, bankFilter = "ALL" }) {
+  if (!result) {
+    return {
+      tone: "neutral",
+      label: "Aguardando OFX",
+      text: "Processe um arquivo para iniciar o fluxo operacional.",
+      detail: "Sem itens carregados"
+    };
+  }
+  if (selectedTotalCount > 0) {
+    return {
+      tone: "success",
+      label: `${selectedTotalCount} selecionado(s)`,
+      text: "Itens prontos para confirmação de baixa manual.",
+      detail: "Seleção ativa"
+    };
+  }
+  if (bankFilter && bankFilter !== "ALL") {
+    return {
+      tone: "warning",
+      label: "Filtro por banco",
+      text: `Visualizando somente ${bankFilter}.`,
+      detail: "Filtro ativo"
+    };
+  }
+  return {
+    tone: "success",
+    label: "OFX processado",
+    text: "Pipeline pronto para revisão e conciliação.",
+    detail: "Operação carregada"
+  };
+}
+
 function renderConciliacaoProcessingPanel({ banks, result, stats, fileSummary, matchingSummary, dedupeSummary }) {
+  const statusTone = result ?"success" : "neutral";
   return `
     <section class="conciliacao-processing-panel">
       <div class="conciliacao-processing-copy">
@@ -2301,22 +2353,30 @@ function renderConciliacaoProcessingPanel({ banks, result, stats, fileSummary, m
       </div>
       <div class="conciliacao-processing-controls">
         <div class="conciliacao-file-row">
-          <input type="file" id="ofx-file" accept=".ofx,.txt" multiple class="upload-input conciliacao-file-input" />
+          <div class="conciliacao-file-picker">
+            <input type="file" id="ofx-file" accept=".ofx,.txt" multiple class="upload-input conciliacao-file-input" />
+            <button type="button" class="conciliacao-file-trigger">Selecionar arquivo OFX</button>
+            <span class="conciliacao-file-info conciliacao-file-empty">Nenhum arquivo selecionado</span>
+          </div>
           <button id="process-ofx-btn" class="primary-btn conciliacao-primary-action">Processar OFX</button>
         </div>
         <div class="conciliacao-action-row">
-          <button id="process-folder-ofx-btn" class="ghost-btn">Processar pasta /ofx</button>
-          <button id="accumulate-ofx-btn" class="ghost-btn" ${result ?"" : "disabled"}>Acumular resultado atual</button>
-          <button id="clear-accum-ofx-btn" class="ghost-btn" ${state.ofxAccumulated.length ?"" : "disabled"}>Limpar acumulado</button>
-          <button id="conc-export-csv" class="ghost-btn" ${result ?"" : "disabled"}>Exportar CSV</button>
-          <button id="conc-export-pdf" class="ghost-btn" ${result ?"" : "disabled"}>Exportar PDF</button>
-          <select id="bank-filter" class="upload-input">
-            <option value="ALL">Todos os bancos</option>
-            ${banks.map((bank) => `<option value="${escapeHtml(bank)}" ${state.conciliationBankFilter === bank ?"selected" : ""}>${escapeHtml(bank)}</option>`).join("")}
-          </select>
+          <div class="conciliacao-action-cluster">
+            <button id="process-folder-ofx-btn" class="ghost-btn conciliacao-secondary-action">Processar pasta /ofx</button>
+            <button id="accumulate-ofx-btn" class="ghost-btn conciliacao-secondary-action" ${result ?"" : "disabled"}>Acumular resultado atual</button>
+            <button id="clear-accum-ofx-btn" class="ghost-btn conciliacao-danger-action" ${state.ofxAccumulated.length ?"" : "disabled"}>Limpar acumulado</button>
+          </div>
+          <div class="conciliacao-action-cluster">
+            <button id="conc-export-csv" class="ghost-btn conciliacao-export-action" ${result ?"" : "disabled"}>Exportar CSV</button>
+            <button id="conc-export-pdf" class="ghost-btn conciliacao-export-action" ${result ?"" : "disabled"}>Exportar PDF</button>
+            <select id="bank-filter" class="upload-input conciliacao-bank-filter">
+              <option value="ALL">Todos os bancos</option>
+              ${banks.map((bank) => `<option value="${escapeHtml(bank)}" ${state.conciliationBankFilter === bank ?"selected" : ""}>${escapeHtml(bank)}</option>`).join("")}
+            </select>
+          </div>
         </div>
       </div>
-      <div class="conciliacao-processing-status">
+      <div class="conciliacao-processing-status ${statusTone}">
         <strong>${escapeHtml(stats)}</strong>
         ${fileSummary ?`<p>${fileSummary}</p>` : ""}
         ${matchingSummary ?`<p>${escapeHtml(matchingSummary)}</p>` : ""}
@@ -2324,6 +2384,31 @@ function renderConciliacaoProcessingPanel({ banks, result, stats, fileSummary, m
       </div>
     </section>
   `;
+}
+
+function getConciliacaoFilePickerLabel(files) {
+  if (!files || !files.length) return "Nenhum arquivo selecionado";
+  if (files.length === 1) return files[0].name;
+  return `${files.length} arquivos selecionados`;
+}
+
+function updateConciliacaoFilePicker() {
+  const input = byId("ofx-file");
+  const info = document.querySelector(".conciliacao-file-info");
+  if (!input || !info) return;
+  const files = Array.from(input.files || []);
+  info.textContent = getConciliacaoFilePickerLabel(files);
+  info.classList.toggle("conciliacao-file-empty", !files.length);
+  info.classList.toggle("conciliacao-file-selected", files.length > 0);
+}
+
+function setupConciliacaoFilePicker() {
+  const input = byId("ofx-file");
+  const trigger = document.querySelector(".conciliacao-file-trigger");
+  if (!input || !trigger) return;
+  trigger.addEventListener("click", () => input.click());
+  input.addEventListener("change", updateConciliacaoFilePicker);
+  updateConciliacaoFilePicker();
 }
 
 
