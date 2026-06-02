@@ -23,6 +23,13 @@ const state = {
   receberFilter: getDefaultReceberFilter(),
   pagarFilter: getDefaultDateRange(),
   conciliationBankFilter: "ALL",
+  conciliationFilters: {
+    search: "",
+    group: "ALL",
+    direction: "ALL",
+    minValue: "",
+    maxValue: ""
+  },
   ofxResult: null,
   ofxAccumulated: [],
   selectedConciliationKeys: new Set(),
@@ -1296,13 +1303,86 @@ function renderConciliacaoScore(score) {
   `;
 }
 
-function renderConciliacaoPipelineEmptyState(title, text, tone = "neutral") {
+function renderConciliacaoPipelineEmptyState(title, text, tone = "neutral", actionLabel = "") {
   return `
     <div class="conciliacao-pipeline-empty ${tone}">
       <strong>${escapeHtml(title)}</strong>
       <span>${escapeHtml(text)}</span>
+      ${actionLabel ?`<button type="button" class="conciliacao-pipeline-empty-action" data-pipeline-clear-filters>${escapeHtml(actionLabel)}</button>` : ""}
     </div>
   `;
+}
+
+function getConciliacaoPipelineEmptyState({ group, hasResult, originalCount = 0, bankCount = 0, filteredCount = 0, filters, bankFilter }) {
+  const tone = getConciliacaoPipelineTone(group);
+  const defaults = {
+    conciliated: {
+      noResultTitle: "Processe um OFX para iniciar",
+      noResultText: "As sugestões de match serão listadas após a importação.",
+      emptyTitle: "Nenhum match sugerido",
+      emptyText: "Quando houver correspondências confiáveis, elas aparecerão aqui."
+    },
+    review: {
+      noResultTitle: "Aguardando processamento",
+      noResultText: "Processe um arquivo OFX para identificar lançamentos que exigem revisão.",
+      emptyTitle: "Nada pendente de revisão",
+      emptyText: "Lançamentos com baixa confiança serão enviados para esta etapa."
+    },
+    divergent: {
+      noResultTitle: "Nenhum lançamento encontrado",
+      noResultText: "As divergências serão calculadas após a importação do OFX.",
+      emptyTitle: "Nenhuma divergência encontrada",
+      emptyText: "Diferenças financeiras ou ausência de match serão destacadas aqui."
+    }
+  };
+  const copy = defaults[group] || defaults.conciliated;
+  if (!hasResult) {
+    return { title: copy.noResultTitle, text: copy.noResultText, tone };
+  }
+  if (!originalCount) {
+    return { title: copy.emptyTitle, text: copy.emptyText, tone };
+  }
+  if (bankFilter && bankFilter !== "ALL" && !bankCount) {
+    return {
+      title: "Banco sem lançamentos nesta etapa",
+      text: "Altere o banco selecionado ou limpe os filtros.",
+      tone,
+      actionLabel: getConciliationActiveFilterCount() ? "Limpar filtros" : ""
+    };
+  }
+  if (!filteredCount) {
+    if (String(filters.search || "").trim()) {
+      return {
+        title: "Busca sem resultado",
+        text: "Tente buscar por outro termo, banco, documento ou descrição.",
+        tone,
+        actionLabel: "Limpar filtros"
+      };
+    }
+    if (filters.minValue !== "" || filters.maxValue !== "") {
+      return {
+        title: "Nenhum valor na faixa informada",
+        text: "Revise o valor mínimo e máximo ou limpe os filtros.",
+        tone,
+        actionLabel: "Limpar filtros"
+      };
+    }
+    if (filters.direction !== "ALL") {
+      return {
+        title: filters.direction === "credit" ?"Nenhum crédito exibido" : "Nenhum débito exibido",
+        text: "O filtro de movimento ocultou todos os lançamentos desta coluna.",
+        tone,
+        actionLabel: "Limpar filtros"
+      };
+    }
+    return {
+      title: "Nenhum lançamento encontrado",
+      text: "Os filtros atuais ocultaram todos os lançamentos desta coluna.",
+      tone,
+      actionLabel: getConciliationActiveFilterCount() ? "Limpar filtros" : ""
+    };
+  }
+  return { title: copy.emptyTitle, text: copy.emptyText, tone };
 }
 
 function renderConciliacaoPipelineCard(tx, options = {}) {
@@ -1388,8 +1468,9 @@ function txCard(tx, options = {}) {
   return renderConciliacaoPipelineCard(tx, options);
 }
 
-function renderConciliacaoPipelineColumn({ title, subtitle, group, transactions, emptyTitle, emptyText, actions = "", renderItem }) {
+function renderConciliacaoPipelineColumn({ title, subtitle, group, transactions, emptyState, actions = "", renderItem }) {
   const tone = getConciliacaoPipelineTone(group);
+  const empty = emptyState || { title: "Nenhum lançamento encontrado", text: "Ajuste os filtros e tente novamente.", tone };
   return `
     <section class="conciliacao-pipeline-column ${tone}">
       <div class="conciliacao-pipeline-header">
@@ -1404,7 +1485,7 @@ function renderConciliacaoPipelineColumn({ title, subtitle, group, transactions,
         ${
           transactions.length
             ?transactions.map(renderItem).join("")
-            : renderConciliacaoPipelineEmptyState(emptyTitle, emptyText, tone)
+            : renderConciliacaoPipelineEmptyState(empty.title, empty.text, empty.tone || tone, empty.actionLabel || "")
         }
       </div>
     </section>
@@ -1425,6 +1506,97 @@ function filterTransactionsByBank(list, bankFilter) {
   if (!Array.isArray(list)) return [];
   if (!bankFilter || bankFilter === "ALL") return list;
   return list.filter((tx) => tx.bankName === bankFilter);
+}
+
+function getConciliationFilterMatch(tx, filters, group) {
+  const filterGroup = filters.group || "ALL";
+  if (filterGroup === "conciliated" && group !== "conciliated") return false;
+  if (filterGroup === "review" && group !== "review") return false;
+  if (filterGroup === "divergent" && group !== "divergent") return false;
+  if (filterGroup === "settled" && !isConciliationSettled(tx)) return false;
+
+  const amount = Number(tx.amount || 0);
+  if (filters.direction === "credit" && amount < 0) return false;
+  if (filters.direction === "debit" && amount >= 0) return false;
+
+  const absoluteAmount = Math.abs(amount);
+  if (filters.minValue !== "" && absoluteAmount < Number(filters.minValue)) return false;
+  if (filters.maxValue !== "" && absoluteAmount > Number(filters.maxValue)) return false;
+
+  const query = String(filters.search || "").trim().toLowerCase();
+  if (query) {
+    const matched = tx.matched || {};
+    const itemsText = Array.isArray(matched.items)
+      ?matched.items
+          .map((item) => `${item.titulo || ""} ${item.numeroDocumento || ""} ${item.documentoID || ""} ${item.cliente || ""} ${item.fornecedor || ""}`)
+          .join(" ")
+      : "";
+    const searchSpace = [
+      tx.name,
+      tx.memo,
+      tx.bankName,
+      tx.documentNumber,
+      tx.fitId,
+      tx.reason,
+      matched.titulo,
+      matched.numeroDocumento,
+      matched.documentoID,
+      matched.entityType,
+      matched.cliente,
+      matched.fornecedor,
+      itemsText
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    if (!searchSpace.includes(query)) return false;
+  }
+
+  return true;
+}
+
+function filterConciliationTransactions(transactions, group) {
+  const filters = state.conciliationFilters;
+  return (transactions || []).filter((tx) => getConciliationFilterMatch(tx, filters, group));
+}
+
+function getConciliationActiveFilterCount() {
+  const filters = state.conciliationFilters;
+  return [
+    filters.search,
+    filters.group !== "ALL" ?filters.group : "",
+    filters.direction !== "ALL" ?filters.direction : "",
+    filters.minValue,
+    filters.maxValue
+  ].filter((value) => String(value || "").trim() !== "").length;
+}
+
+function clearConciliacaoFilters() {
+  state.conciliationFilters = {
+    search: "",
+    group: "ALL",
+    direction: "ALL",
+    minValue: "",
+    maxValue: ""
+  };
+  renderConciliacao();
+}
+
+function applyConciliacaoQuickAction(action) {
+  if (action.group) state.conciliationFilters.group = action.group;
+  if (action.direction) state.conciliationFilters.direction = action.direction;
+  renderConciliacao();
+}
+
+function renderConciliacaoKeepingFilterFocus(inputId) {
+  renderConciliacao();
+  const input = byId(inputId);
+  if (!input) return;
+  input.focus();
+  const cursor = String(input.value || "").length;
+  if (typeof input.setSelectionRange === "function") {
+    input.setSelectionRange(cursor, cursor);
+  }
 }
 
 function getAllConciliationTransactions(result) {
@@ -1513,9 +1685,47 @@ function renderConciliacao() {
 
   const catalogs = state.reconciliationCatalogs;
   const conciliatedAll = result ?result.groups.conciliated || [] : [];
-  const conciliatedList = result ?filterTransactionsByBank(conciliatedAll, state.conciliationBankFilter) : [];
-  const reviewList = result ?filterTransactionsByBank(result.groups.review, state.conciliationBankFilter) : [];
-  const divergentList = result ?filterTransactionsByBank(result.groups.divergent, state.conciliationBankFilter) : [];
+  const conciliatedBankList = result ?filterTransactionsByBank(conciliatedAll, state.conciliationBankFilter) : [];
+  const reviewBankList = result ?filterTransactionsByBank(result.groups.review, state.conciliationBankFilter) : [];
+  const divergentBankList = result ?filterTransactionsByBank(result.groups.divergent, state.conciliationBankFilter) : [];
+  const conciliatedList = result ?filterConciliationTransactions(conciliatedBankList, "conciliated") : [];
+  const reviewList = result ?filterConciliationTransactions(reviewBankList, "review") : [];
+  const divergentList = result ?filterConciliationTransactions(divergentBankList, "divergent") : [];
+  const conciliationEmptyStates = {
+    conciliated: getConciliacaoPipelineEmptyState({
+      group: "conciliated",
+      hasResult: Boolean(result),
+      originalCount: conciliatedAll.length,
+      bankCount: conciliatedBankList.length,
+      filteredCount: conciliatedList.length,
+      filters: state.conciliationFilters,
+      bankFilter: state.conciliationBankFilter
+    }),
+    review: getConciliacaoPipelineEmptyState({
+      group: "review",
+      hasResult: Boolean(result),
+      originalCount: result ?(result.groups.review || []).length : 0,
+      bankCount: reviewBankList.length,
+      filteredCount: reviewList.length,
+      filters: state.conciliationFilters,
+      bankFilter: state.conciliationBankFilter
+    }),
+    divergent: getConciliacaoPipelineEmptyState({
+      group: "divergent",
+      hasResult: Boolean(result),
+      originalCount: result ?(result.groups.divergent || []).length : 0,
+      bankCount: divergentBankList.length,
+      filteredCount: divergentList.length,
+      filters: state.conciliationFilters,
+      bankFilter: state.conciliationBankFilter
+    })
+  };
+  const allBankFilteredTransactions = [...conciliatedBankList, ...reviewBankList, ...divergentBankList];
+  const visibleTransactions = [...conciliatedList, ...reviewList, ...divergentList];
+  const filterSummary = {
+    total: allBankFilteredTransactions.length,
+    visible: visibleTransactions.length
+  };
   const selectableAll = getSelectableConciliationTransactions(conciliatedAll);
   const selectableKeys = new Set(selectableAll.map((tx) => getConciliationTxKey(tx)));
   state.selectedConciliationKeys = new Set([...state.selectedConciliationKeys].filter((key) => selectableKeys.has(key)));
@@ -1530,6 +1740,11 @@ function renderConciliacao() {
   const selectedReceberCount = selectedTransactions.filter((tx) => tx?.matched?.entityType === "receber").length;
   const selectedPagarCount = selectedTransactions.filter((tx) => tx?.matched?.entityType === "pagar").length;
   const selectedAmountTotal = selectedTransactions.reduce((acc, tx) => acc + Math.abs(Number(tx.amount || 0)), 0);
+  const filteredViewSummary = summarizeConciliationFilteredView({
+    allTransactions: allBankFilteredTransactions,
+    visibleTransactions,
+    selectedTransactions
+  });
   const conciliationSummary = summarizeConciliacao(result);
   const operationalState = getConciliacaoOperationalState({
     result,
@@ -1604,6 +1819,8 @@ function renderConciliacao() {
       selectedPagarCount,
       selectedAmountTotal
     })}
+    ${renderConciliacaoFiltersPanel(filterSummary)}
+    ${renderConciliacaoFilterSummary(filteredViewSummary)}
 
     <div class="conciliacao-pipeline">
       ${renderConciliacaoPipelineColumn({
@@ -1611,8 +1828,7 @@ function renderConciliacao() {
         subtitle: "Match automático",
         group: "conciliated",
         transactions: result ?conciliatedList : [],
-        emptyTitle: result ?"Nenhum match sugerido" : "Processe um OFX para iniciar a conciliação",
-        emptyText: result ?"Quando houver correspondências confiáveis, elas aparecerão aqui." : "As sugestões de match serão listadas nesta coluna.",
+        emptyState: conciliationEmptyStates.conciliated,
         actions: `
           <label class="conc-select-all"><input type="checkbox" id="conc-select-all" ${allVisibleSelected ?"checked" : ""} ${selectableVisible.length ?"" : "disabled"} /> Selecionar todos</label>
           <button id="conc-submit-selected" class="ghost-btn" ${selectedTotalCount ?"" : "disabled"}>Confirmar baixa manual (${selectedTotalCount})</button>
@@ -1633,8 +1849,7 @@ function renderConciliacao() {
         subtitle: "Revisão humana",
         group: "review",
         transactions: result ?reviewList : [],
-        emptyTitle: result ?"Nada pendente de revisão" : "Aguardando processamento",
-        emptyText: result ?"Lançamentos com baixa confiança serão enviados para esta etapa." : "Processe um arquivo OFX para identificar lançamentos que exigem revisão.",
+        emptyState: conciliationEmptyStates.review,
         renderItem: (tx) => txCard(tx, { group: "review" })
       })}
       ${renderConciliacaoPipelineColumn({
@@ -1642,8 +1857,7 @@ function renderConciliacao() {
         subtitle: "Atenção crítica",
         group: "divergent",
         transactions: result ?divergentList : [],
-        emptyTitle: result ?"Nenhuma divergência encontrada" : "Nenhum lançamento encontrado",
-        emptyText: result ?"Diferenças financeiras ou ausência de match serão destacadas aqui." : "As divergências serão calculadas após a importação do OFX.",
+        emptyState: conciliationEmptyStates.divergent,
         renderItem: (tx) => txCard(tx, { group: "divergent" })
       })}
     </div>
@@ -1699,6 +1913,39 @@ function renderConciliacao() {
   byId("bank-filter").addEventListener("change", (event) => {
     state.conciliationBankFilter = event.target.value;
     renderConciliacao();
+  });
+  byId("conc-filter-search").addEventListener("input", (event) => {
+    state.conciliationFilters.search = event.target.value;
+    renderConciliacaoKeepingFilterFocus("conc-filter-search");
+  });
+  byId("conc-filter-group").addEventListener("change", (event) => {
+    state.conciliationFilters.group = event.target.value;
+    renderConciliacao();
+  });
+  byId("conc-filter-direction").addEventListener("change", (event) => {
+    state.conciliationFilters.direction = event.target.value;
+    renderConciliacao();
+  });
+  byId("conc-filter-min-value").addEventListener("input", (event) => {
+    state.conciliationFilters.minValue = event.target.value;
+    renderConciliacaoKeepingFilterFocus("conc-filter-min-value");
+  });
+  byId("conc-filter-max-value").addEventListener("input", (event) => {
+    state.conciliationFilters.maxValue = event.target.value;
+    renderConciliacaoKeepingFilterFocus("conc-filter-max-value");
+  });
+  byId("conc-filter-clear").addEventListener("click", clearConciliacaoFilters);
+  document.querySelectorAll("[data-quick-group]").forEach((button) => {
+    button.addEventListener("click", () => applyConciliacaoQuickAction({ group: button.dataset.quickGroup }));
+  });
+  document.querySelectorAll("[data-quick-direction]").forEach((button) => {
+    button.addEventListener("click", () => applyConciliacaoQuickAction({ direction: button.dataset.quickDirection }));
+  });
+  document.querySelectorAll("[data-quick-clear]").forEach((button) => {
+    button.addEventListener("click", clearConciliacaoFilters);
+  });
+  document.querySelectorAll("[data-pipeline-clear-filters]").forEach((button) => {
+    button.addEventListener("click", clearConciliacaoFilters);
   });
   byId("conc-organizacao-id").addEventListener("input", (event) => {
     state.reconciliationForm.organizacaoId = event.target.value;
@@ -2264,6 +2511,35 @@ function getConciliacaoAmountTotal(transactions) {
   return (transactions || []).reduce((acc, tx) => acc + Math.abs(Number(tx.amount || 0)), 0);
 }
 
+function summarizeConciliationFilteredView({ allTransactions = [], visibleTransactions = [], selectedTransactions = [] }) {
+  const summary = {
+    totalAll: allTransactions.length,
+    totalVisible: visibleTransactions.length,
+    visibleAmount: 0,
+    creditCount: 0,
+    creditAmount: 0,
+    debitCount: 0,
+    debitAmount: 0,
+    selectedCount: selectedTransactions.length,
+    selectedAmount: getConciliacaoAmountTotal(selectedTransactions)
+  };
+
+  for (const tx of visibleTransactions) {
+    const amount = Number(tx.amount || 0);
+    const absoluteAmount = Math.abs(amount);
+    summary.visibleAmount += absoluteAmount;
+    if (amount >= 0) {
+      summary.creditCount += 1;
+      summary.creditAmount += absoluteAmount;
+    } else {
+      summary.debitCount += 1;
+      summary.debitAmount += absoluteAmount;
+    }
+  }
+
+  return summary;
+}
+
 function summarizeConciliacao(result) {
   const groups = result?.groups || {};
   const conciliated = groups.conciliated || [];
@@ -2297,6 +2573,165 @@ function renderConciliacaoKpis(summary) {
               <span>${escapeHtml(item.label)}</span>
               <strong>${escapeHtml(item.value)}</strong>
               <small>${escapeHtml(item.hint)}</small>
+            </article>
+          `
+        )
+        .join("")}
+    </section>
+  `;
+}
+
+function renderConciliacaoFiltersPanel(summary) {
+  const filters = state.conciliationFilters;
+  const activeCount = getConciliationActiveFilterCount();
+  return `
+    <section class="conciliacao-filters-panel">
+      <div class="conciliacao-filters-header">
+        <div>
+          <span>Filtros operacionais</span>
+          <h4>Refinar pipeline</h4>
+        </div>
+        <div class="conciliacao-filter-summary">
+          <strong>${summary.visible}</strong>
+          <span>de ${summary.total} lançamento(s)</span>
+          ${activeCount ?`<em>${activeCount} filtro(s) ativo(s)</em>` : `<em>Visualização completa</em>`}
+        </div>
+      </div>
+      ${renderConciliacaoQuickActions()}
+      <div class="conciliacao-filters-grid">
+        <label class="conciliacao-filter-field search">
+          <span>Busca</span>
+          <input id="conc-filter-search" class="upload-input" type="search" placeholder="Descrição, memo, banco, documento ou match" value="${escapeHtml(filters.search)}" />
+        </label>
+        <label class="conciliacao-filter-field">
+          <span>Status</span>
+          <select id="conc-filter-group" class="upload-input">
+            <option value="ALL" ${filters.group === "ALL" ?"selected" : ""}>Todos</option>
+            <option value="conciliated" ${filters.group === "conciliated" ?"selected" : ""}>Sugestões de match</option>
+            <option value="review" ${filters.group === "review" ?"selected" : ""}>A revisar</option>
+            <option value="divergent" ${filters.group === "divergent" ?"selected" : ""}>Divergente</option>
+            <option value="settled" ${filters.group === "settled" ?"selected" : ""}>Baixados</option>
+          </select>
+        </label>
+        <label class="conciliacao-filter-field">
+          <span>Movimento</span>
+          <select id="conc-filter-direction" class="upload-input">
+            <option value="ALL" ${filters.direction === "ALL" ?"selected" : ""}>Todos</option>
+            <option value="credit" ${filters.direction === "credit" ?"selected" : ""}>Créditos</option>
+            <option value="debit" ${filters.direction === "debit" ?"selected" : ""}>Débitos</option>
+          </select>
+        </label>
+        <label class="conciliacao-filter-field compact">
+          <span>Valor mínimo</span>
+          <input id="conc-filter-min-value" class="upload-input" type="number" min="0" step="0.01" placeholder="R$ mín." value="${escapeHtml(filters.minValue)}" />
+        </label>
+        <label class="conciliacao-filter-field compact">
+          <span>Valor máximo</span>
+          <input id="conc-filter-max-value" class="upload-input" type="number" min="0" step="0.01" placeholder="R$ máx." value="${escapeHtml(filters.maxValue)}" />
+        </label>
+        <div class="conciliacao-filter-actions">
+          <button id="conc-filter-clear" class="ghost-btn" type="button" ${activeCount ?"" : "disabled"}>Limpar filtros</button>
+        </div>
+      </div>
+      <div class="conciliacao-filter-chip">
+        Banco: ${escapeHtml(state.conciliationBankFilter === "ALL" ?"Todos os bancos" : state.conciliationBankFilter)}
+      </div>
+    </section>
+  `;
+}
+
+function renderConciliacaoQuickActions() {
+  const filters = state.conciliationFilters;
+  const groupChips = [
+    { label: "Todos", value: "ALL" },
+    { label: "Sugestões", value: "conciliated" },
+    { label: "A revisar", value: "review" },
+    { label: "Divergentes", value: "divergent" },
+    { label: "Baixados", value: "settled" }
+  ];
+  const directionChips = [
+    { label: "Todos movimentos", value: "ALL" },
+    { label: "Créditos", value: "credit" },
+    { label: "Débitos", value: "debit" }
+  ];
+  const activeCount = getConciliationActiveFilterCount();
+
+  return `
+    <div class="conciliacao-quick-actions">
+      <div class="conciliacao-quick-group">
+        <span class="conciliacao-quick-label">Status</span>
+        <div>
+          ${groupChips
+            .map(
+              (chip) => `
+                <button type="button" class="conciliacao-quick-chip ${filters.group === chip.value ?"active" : ""}" data-quick-group="${chip.value}">
+                  ${escapeHtml(chip.label)}
+                </button>
+              `
+            )
+            .join("")}
+        </div>
+      </div>
+      <div class="conciliacao-quick-group">
+        <span class="conciliacao-quick-label">Movimento</span>
+        <div>
+          ${directionChips
+            .map(
+              (chip) => `
+                <button type="button" class="conciliacao-quick-chip ${filters.direction === chip.value ?"active" : ""}" data-quick-direction="${chip.value}">
+                  ${escapeHtml(chip.label)}
+                </button>
+              `
+            )
+            .join("")}
+        </div>
+      </div>
+      <button type="button" class="conciliacao-quick-chip danger" data-quick-clear ${activeCount ?"" : "disabled"}>Limpar filtros</button>
+    </div>
+  `;
+}
+
+function renderConciliacaoFilterSummary(summary) {
+  const cards = [
+    {
+      label: "Exibindo",
+      value: `${summary.totalVisible} de ${summary.totalAll}`,
+      sub: "lançamento(s)"
+    },
+    {
+      label: "Total filtrado",
+      value: currency.format(summary.visibleAmount),
+      sub: "soma absoluta"
+    },
+    {
+      label: "Créditos",
+      value: `${summary.creditCount}`,
+      sub: currency.format(summary.creditAmount),
+      tone: "success"
+    },
+    {
+      label: "Débitos",
+      value: `${summary.debitCount}`,
+      sub: currency.format(summary.debitAmount),
+      tone: "warning"
+    },
+    {
+      label: "Selecionados",
+      value: `${summary.selectedCount}`,
+      sub: currency.format(summary.selectedAmount),
+      tone: summary.selectedCount ? "money" : "neutral"
+    }
+  ];
+
+  return `
+    <section class="conciliacao-filter-summary-panel">
+      ${cards
+        .map(
+          (card) => `
+            <article class="conciliacao-filter-summary-card ${card.tone || "neutral"}">
+              <span class="conciliacao-filter-summary-label">${escapeHtml(card.label)}</span>
+              <strong class="conciliacao-filter-summary-value">${escapeHtml(card.value)}</strong>
+              <small class="conciliacao-filter-summary-sub">${escapeHtml(card.sub)}</small>
             </article>
           `
         )
