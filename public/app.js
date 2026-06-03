@@ -120,6 +120,7 @@ const menuItems = [
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const SESSION_STORAGE_KEY = "financeiro.session";
+const SESSION_INVALID_ERROR = "SESSION_INVALID";
 const RECEBER_SITUACAO_LABELS = {
   1: "Em aberto",
   2: "Vencido",
@@ -210,6 +211,16 @@ function saveSession() {
 
 function clearSession() {
   sessionStorage.removeItem(SESSION_STORAGE_KEY);
+}
+
+function createSessionInvalidError(message = "Sua sessão expirou. Faça login novamente.") {
+  const error = new Error(message);
+  error.name = SESSION_INVALID_ERROR;
+  return error;
+}
+
+function isSessionInvalidError(error) {
+  return error?.name === SESSION_INVALID_ERROR;
 }
 
 function resetSessionState() {
@@ -314,8 +325,10 @@ async function ensureSessionFresh() {
       body: JSON.stringify({ token: state.token })
     });
     if (response.status === 401) {
-      returnToLogin();
-      return;
+      const data = await response.json().catch(() => ({}));
+      const message = data.message || "Sua sessão expirou. Faça login novamente.";
+      returnToLogin(message);
+      throw createSessionInvalidError(message);
     }
     if (!response.ok) return;
     const data = await response.json();
@@ -324,8 +337,35 @@ async function ensureSessionFresh() {
       state.tokenExpiresAt = data.expiresAt;
       saveSession();
     }
-  } catch (_error) {
+  } catch (error) {
+    if (isSessionInvalidError(error)) throw error;
     // fallback: keep fluxo atual sem interromper usuário
+  }
+}
+
+async function validateRestoredSession() {
+  if (!state.token) return false;
+  try {
+    const response = await fetch("/api/auth/refresh", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.token}`
+      },
+      body: JSON.stringify({ token: state.token })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.tokenPreview) {
+      returnToLogin(data.message || "Sua sessão expirou. Faça login novamente.");
+      return false;
+    }
+    state.token = data.tokenPreview;
+    state.tokenExpiresAt = data.expiresAt || null;
+    saveSession();
+    return true;
+  } catch (_error) {
+    returnToLogin("Não foi possível validar sua sessão. Faça login novamente.");
+    return false;
   }
 }
 
@@ -3817,8 +3857,9 @@ async function fetchJson(url, options = {}) {
 
   const data = await response.json();
   if (response.status === 401) {
-    returnToLogin(data.message || "Sua sessão expirou. Faça login novamente.");
-    throw new Error(data.message || "Sessão inválida.");
+    const message = data.message || "Sua sessão expirou. Faça login novamente.";
+    returnToLogin(message);
+    throw createSessionInvalidError(message);
   }
   if (!response.ok) throw new Error(data.message || "Erro na requisição");
   return data;
@@ -4218,10 +4259,17 @@ function bindEvents() {
 mountMenu();
 bindEvents();
 applySidebarState();
-if (maybeRestoreSession()) {
-  byId("login-view").classList.add("hidden");
-  byId("app-view").classList.remove("hidden");
-  void Promise.all([loadReconciliationJobs(), loadAccumulatedOfx()]).then(() => setActiveScreen("receber"));
-} else {
-  void setActiveScreen("receber");
+
+async function bootstrapApp() {
+  if (maybeRestoreSession() && await validateRestoredSession()) {
+    byId("login-view").classList.add("hidden");
+    byId("app-view").classList.remove("hidden");
+    await Promise.all([loadReconciliationJobs(), loadAccumulatedOfx()]);
+    await setActiveScreen("receber");
+    return;
+  }
+
+  await setActiveScreen("receber");
 }
+
+void bootstrapApp();
