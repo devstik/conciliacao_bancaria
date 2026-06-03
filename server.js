@@ -1290,19 +1290,24 @@ app.get("/api/pagar", requireAuth, async (req, res) => {
 });
 
 app.get("/api/ficha-cliente/anexo", requireAuth, async (req, res) => {
-  const assetPath = req.query.path;
-  if (!assetPath || typeof assetPath !== "string" || !assetPath.startsWith("/")) {
+  const assetPath = String(req.query.path || "").trim();
+  if (!assetPath) {
     return res.status(400).json({ message: "Caminho inválido." });
   }
   try {
+    const baseUrl = new URL(NODE_API_BASE_URL);
+    const assetUrl = new URL(assetPath, baseUrl);
+    if (assetUrl.origin !== baseUrl.origin) {
+      return res.status(400).json({ message: "Caminho de anexo fora da NodeAPI." });
+    }
+
     const token = await getNodeApiToken();
-    const url = `${NODE_API_BASE_URL}${assetPath}`;
-    const upstream = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const upstream = await fetch(assetUrl.toString(), { headers: { Authorization: `Bearer ${token}` } });
     if (!upstream.ok) {
       return res.status(upstream.status).json({ message: "Arquivo não encontrado na API." });
     }
     const contentType = upstream.headers.get("content-type") || "application/octet-stream";
-    const contentDisposition = upstream.headers.get("content-disposition") || `attachment; filename="${path.basename(assetPath)}"`;
+    const contentDisposition = upstream.headers.get("content-disposition") || `attachment; filename="${path.basename(assetUrl.pathname)}"`;
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Disposition", contentDisposition);
     const buffer = await upstream.arrayBuffer();
@@ -1347,11 +1352,14 @@ app.get("/api/ficha-cliente/:id", requireAuth, async (req, res) => {
 
 app.patch("/api/ficha-cliente/:id/analise", requireAuth, async (req, res) => {
   try {
+    const actor = resolveActor(req);
     const data = await fetchNodeApiJson(`/api/fichas-cadastro-clientes/${req.params.id}/analise`, {
       method: "PATCH",
       body: {
         statusAnalise: req.body?.statusAnalise,
         observacaoAnalise: req.body?.observacaoAnalise,
+        analisadoPor: actor,
+        usuario: actor,
         pagamentoAnalise: {
           valorPedido: req.body?.pagamentoAnalise?.valorPedido,
           formaPagamento: req.body?.pagamentoAnalise?.formaPagamento,
@@ -1359,10 +1367,9 @@ app.patch("/api/ficha-cliente/:id/analise", requireAuth, async (req, res) => {
         }
       }
     });
-    return res.json({
-      row: data.data || null,
-      source: "nodeapi"
-    });
+    const row = data.data || null;
+    if (row) row.analisadoPor = actor;
+    return res.json({ row, source: "nodeapi" });
   } catch (error) {
     return res.status(502).json({ message: error.message || "Falha ao salvar análise da ficha na NodeAPI." });
   }

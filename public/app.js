@@ -468,7 +468,20 @@ function mapFichaClienteRow(row, index) {
     observacaoAnalise: pick(row, ["observacaoAnalise"], ""),
     analisadoPor: pick(row, ["analisadoPor"], ""),
     analisadoEm: pick(row, ["analisadoEm"], ""),
-    arquivosAnexados: Array.isArray(row?.arquivosAnexados) ?row.arquivosAnexados : []
+    arquivosAnexados: Array.isArray(row?.arquivosAnexados) ?row.arquivosAnexados.map(mapFichaClienteAnexo) : []
+  };
+}
+
+function mapFichaClienteAnexo(item) {
+  if (!item || typeof item !== "object") {
+    return { nome: "Anexo", assetPath: "" };
+  }
+
+  const assetPath = pick(item, ["assetPath", "path", "url", "assetUrl", "arquivoUrl", "caminho", "link"], "");
+  return {
+    ...item,
+    nome: pick(item, ["nome", "name", "filename", "fileName", "arquivoNome", "originalName"], "Anexo"),
+    assetPath
   };
 }
 
@@ -673,6 +686,30 @@ function downloadFile(filename, content, mime) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+async function downloadAnexo(assetPath, nome) {
+  try {
+    await ensureSessionFresh();
+    const response = await fetch(`/api/ficha-cliente/anexo?path=${encodeURIComponent(assetPath)}`, {
+      headers: state.token ?{ Authorization: `Bearer ${state.token}` } : {}
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || "Erro ao baixar arquivo.");
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nome || assetPath.split("/").pop() || "anexo";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert(e.message);
+  }
 }
 
 function toCsv(rows, columns) {
@@ -3227,6 +3264,24 @@ function buildFichaClienteDetailSection(title, items) {
   `;
 }
 
+function buildFichaClienteAnexos(anexos) {
+  if (!anexos.length) return "<p>Nenhum anexo enviado.</p>";
+
+  return `<div style="display:grid;gap:8px;">${anexos
+    .map(
+      (item) => `
+        <div style="padding:14px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div style="min-width:0;">
+            <strong style="display:block;word-break:break-word;">${escapeHtml(item.nome || "Anexo")}</strong>
+            ${item.assetPath ?`<div style="color:var(--text-soft);font-size:11px;word-break:break-all;margin-top:2px;">${escapeHtml(item.assetPath)}</div>` : ""}
+          </div>
+          ${item.assetPath ?`<button class="ficha-download-btn" data-asset-path="${escapeHtml(item.assetPath)}" data-nome="${escapeHtml(item.nome || "anexo")}" style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;background:#0145F2;color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;">&#8595; Baixar</button>` : ""}
+        </div>
+      `
+    )
+    .join("")}</div>`;
+}
+
 function buildFichaClienteDetailPanel(ficha, options = {}) {
   if (!ficha) return "";
   const anexos = ficha.arquivosAnexados || [];
@@ -3347,20 +3402,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
       </div>
       <div style="margin-bottom:16px;">
         <h4 style="margin:0 0 8px 0;">Anexos</h4>
-        ${
-          anexos.length
-            ?`<div style="display:grid;gap:8px;">${anexos
-                .map(
-                  (item) => `
-                    <div style="padding:14px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;">
-                      <strong>${escapeHtml(item.nome || "Anexo")}</strong>
-                      <div style="color:var(--text-soft);font-size:12px;">${escapeHtml(item.assetPath || "")}</div>
-                    </div>
-                  `
-                )
-                .join("")}</div>`
-            : "<p>Nenhum anexo enviado.</p>"
-        }
+        ${buildFichaClienteAnexos(anexos)}
       </div>
   `;
   const analysisPaneHtml = `
@@ -3533,20 +3575,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
       </div>
       <div style="margin-bottom:16px;">
         <h4 style="margin:0 0 8px 0;">Anexos</h4>
-        ${
-          anexos.length
-            ?`<div style="display:grid;gap:8px;">${anexos
-                .map(
-                  (item) => `
-                    <div style="padding:14px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;">
-                      <strong>${escapeHtml(item.nome || "Anexo")}</strong>
-                      <div style="color:var(--text-soft);font-size:12px;">${escapeHtml(item.assetPath || "")}</div>
-                    </div>
-                  `
-                )
-                .join("")}</div>`
-            : "<p>Nenhum anexo enviado.</p>"
-        }
+        ${buildFichaClienteAnexos(anexos)}
       </div>
         </div>
         <aside class="fc-detail-analysis-pane fc-detail-scroll-pane" style="${analysisPaneStyle}">
@@ -3748,6 +3777,12 @@ function renderFichaCliente() {
         renderFichaCliente();
       });
     });
+    document.querySelectorAll(".ficha-download-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        downloadAnexo(btn.dataset.assetPath, btn.dataset.nome).catch((e) => alert(e.message));
+      });
+    });
+
     const saveAnaliseButton = byId("ficha-save-analise");
     if (saveAnaliseButton) {
       saveAnaliseButton.addEventListener("click", () => {
