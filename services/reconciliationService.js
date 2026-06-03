@@ -8,7 +8,8 @@ function normalizeStore(raw) {
     insertedTransactions: Array.isArray(raw?.insertedTransactions) ? raw.insertedTransactions : [],
     auditLogs: Array.isArray(raw?.auditLogs) ? raw.auditLogs : [],
     jobs: Array.isArray(raw?.jobs) ? raw.jobs : [],
-    accumulatedOfx: Array.isArray(raw?.accumulatedOfx) ? raw.accumulatedOfx : []
+    accumulatedOfx: Array.isArray(raw?.accumulatedOfx) ? raw.accumulatedOfx : [],
+    fichaClienteAnalises: raw?.fichaClienteAnalises && typeof raw.fichaClienteAnalises === "object" ? raw.fichaClienteAnalises : {}
   };
 }
 
@@ -173,6 +174,45 @@ function clearAccumulatedOfx() {
   return currentStore.accumulatedOfx;
 }
 
+function getFichaClienteAnaliseKey(rowOrId) {
+  if (rowOrId && typeof rowOrId === "object") {
+    return String(rowOrId.id || "").trim();
+  }
+  return String(rowOrId || "").trim();
+}
+
+function saveFichaClienteAnaliseActor(id, actor) {
+  const key = getFichaClienteAnaliseKey(id);
+  if (!key || !actor) return null;
+
+  const currentStore = readStore();
+  const payload = {
+    analisadoPor: actor,
+    analisadoEm: new Date().toISOString()
+  };
+  currentStore.fichaClienteAnalises[key] = payload;
+  saveStore(currentStore);
+  return payload;
+}
+
+function applyFichaClienteAnaliseActor(row) {
+  if (!row || typeof row !== "object") return row;
+  const currentStore = readStore();
+  const key = getFichaClienteAnaliseKey(row);
+  const override = currentStore.fichaClienteAnalises[key];
+  if (!override) return row;
+  return {
+    ...row,
+    analisadoPor: override.analisadoPor || row.analisadoPor,
+    analisadoEm: override.analisadoEm || row.analisadoEm
+  };
+}
+
+function applyFichaClienteAnaliseActors(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map(applyFichaClienteAnaliseActor);
+}
+
 module.exports = {
   insertTransactions,
   listInsertedTransactions,
@@ -184,5 +224,8 @@ module.exports = {
   listJobs,
   getAccumulatedOfx,
   addAccumulatedOfx,
-  clearAccumulatedOfx
+  clearAccumulatedOfx,
+  saveFichaClienteAnaliseActor,
+  applyFichaClienteAnaliseActor,
+  applyFichaClienteAnaliseActors
 };

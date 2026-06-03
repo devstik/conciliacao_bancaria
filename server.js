@@ -15,7 +15,10 @@ const {
   listJobs,
   getAccumulatedOfx,
   addAccumulatedOfx,
-  clearAccumulatedOfx
+  clearAccumulatedOfx,
+  saveFichaClienteAnaliseActor,
+  applyFichaClienteAnaliseActor,
+  applyFichaClienteAnaliseActors
 } = require("./services/reconciliationService");
 const { TopManagerService } = require("./services/topManagerService");
 
@@ -1330,7 +1333,7 @@ app.get("/api/ficha-cliente", requireAuth, async (req, res) => {
       }
     });
     return res.json({
-      rows: Array.isArray(data.data) ? data.data : [],
+      rows: applyFichaClienteAnaliseActors(Array.isArray(data.data) ? data.data : []),
       source: "nodeapi"
     });
   } catch (error) {
@@ -1342,7 +1345,7 @@ app.get("/api/ficha-cliente/:id", requireAuth, async (req, res) => {
   try {
     const data = await fetchNodeApiJson(`/api/fichas-cadastro-clientes/${req.params.id}`);
     return res.json({
-      row: data.data || null,
+      row: applyFichaClienteAnaliseActor(data.data || null),
       source: "nodeapi"
     });
   } catch (error) {
@@ -1358,8 +1361,6 @@ app.patch("/api/ficha-cliente/:id/analise", requireAuth, async (req, res) => {
       body: {
         statusAnalise: req.body?.statusAnalise,
         observacaoAnalise: req.body?.observacaoAnalise,
-        analisadoPor: actor,
-        usuario: actor,
         pagamentoAnalise: {
           valorPedido: req.body?.pagamentoAnalise?.valorPedido,
           formaPagamento: req.body?.pagamentoAnalise?.formaPagamento,
@@ -1367,8 +1368,12 @@ app.patch("/api/ficha-cliente/:id/analise", requireAuth, async (req, res) => {
         }
       }
     });
-    const row = data.data || null;
-    if (row) row.analisadoPor = actor;
+    const override = saveFichaClienteAnaliseActor(req.params.id, actor);
+    const row = applyFichaClienteAnaliseActor(data.data || null);
+    if (row && override) {
+      row.analisadoPor = override.analisadoPor;
+      row.analisadoEm = override.analisadoEm;
+    }
     return res.json({ row, source: "nodeapi" });
   } catch (error) {
     return res.status(502).json({ message: error.message || "Falha ao salvar análise da ficha na NodeAPI." });
