@@ -3207,46 +3207,48 @@ function buildFichaScrollView(rows) {
         </table>
       </div>
 
-      ${state.fichaClienteSelected ?buildFichaClienteDetailPanel(state.fichaClienteSelected, { context: "table-split" }) : ""}
+      ${state.fichaClienteSelected ?renderFichaClienteCardsModal(state.fichaClienteSelected) : ""}
     </div>
   `;
 }
 
 function buildFichaCardsView(rows) {
   return `
-    <div class="fc-cards-grid">
-      ${rows
-        .map((row) => {
-          const status = row.statusAnalise || "pendente";
-          const displayName = getFichaClienteDisplayName(row);
-          const initials = getFichaClienteInitials(row);
-          return `
-          <article class="fc-card-item ficha-open-btn" data-id="${escapeHtml(row.id)}" tabindex="0" role="button">
-            <div class="fc-card-top">
-              <div class="fc-card-avatar">${escapeHtml(initials)}</div>
-              ${renderFichaStatusBadge(status)}
-            </div>
-            <div class="fc-card-body">
-              <strong class="fc-card-name">${escapeHtml(displayName)}</strong>
-              <span class="fc-card-sub">${escapeHtml(row.cnpJouCPF || "-")}</span>
-            </div>
-            <div class="fc-card-meta">
-              <div class="fc-card-meta-item">
-                <span>Tipo</span>
-                <strong>${escapeHtml(row.tipo || "-")}</strong>
+    <div class="fc-cards-scroll">
+      <div class="fc-cards-grid">
+        ${rows
+          .map((row) => {
+            const status = row.statusAnalise || "pendente";
+            const displayName = getFichaClienteDisplayName(row);
+            const initials = getFichaClienteInitials(row);
+            return `
+            <article class="fc-card-item ficha-open-btn" data-id="${escapeHtml(row.id)}" tabindex="0" role="button">
+              <div class="fc-card-top">
+                <div class="fc-card-avatar">${escapeHtml(initials)}</div>
+                ${renderFichaStatusBadge(status)}
               </div>
-              <div class="fc-card-meta-item">
-                <span>Vendedor</span>
-                <strong>${escapeHtml(row.vendedor || "-")}</strong>
+              <div class="fc-card-body">
+                <strong class="fc-card-name">${escapeHtml(displayName)}</strong>
+                <span class="fc-card-sub">${escapeHtml(row.cnpJouCPF || "-")}</span>
               </div>
-              <div class="fc-card-meta-item">
-                <span>Data</span>
-                <strong>${escapeHtml(parseDate(row.data))}</strong>
+              <div class="fc-card-meta">
+                <div class="fc-card-meta-item">
+                  <span>Tipo</span>
+                  <strong>${escapeHtml(row.tipo || "-")}</strong>
+                </div>
+                <div class="fc-card-meta-item">
+                  <span>Vendedor</span>
+                  <strong>${escapeHtml(row.vendedor || "-")}</strong>
+                </div>
+                <div class="fc-card-meta-item">
+                  <span>Data</span>
+                  <strong>${escapeHtml(parseDate(row.data))}</strong>
+                </div>
               </div>
-            </div>
-          </article>`;
-        })
-        .join("")}
+            </article>`;
+          })
+          .join("")}
+      </div>
     </div>
   `;
 }

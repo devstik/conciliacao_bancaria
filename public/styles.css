@@ -2902,6 +2902,299 @@ textarea:focus,
   outline: 3px solid rgba(221, 191, 122, 0.24);
   outline-offset: 2px;
 }
+/* FC-02.2 final EOF: conteúdo interno dos cards sem corte */
+.ficha-delivery-page .fc-cards-grid {
+  grid-auto-rows: auto;
+  align-items: start;
+}
+
+.ficha-delivery-page .fc-card-item {
+  height: auto;
+  min-height: 220px;
+  overflow: visible;
+  align-self: start;
+}
+
+.ficha-delivery-page .fc-card-top,
+.ficha-delivery-page .fc-card-body,
+.ficha-delivery-page .fc-card-meta,
+.ficha-delivery-page .fc-card-meta-item {
+  min-width: 0;
+  overflow: visible;
+}
+
+.ficha-delivery-page .fc-card-meta-item {
+  align-items: flex-start;
+}
+
+.ficha-delivery-page .fc-card-meta-item strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+/* FC-02.4 final EOF: wrapper definitivo de scroll para Cards da Ficha Cliente */
+.ficha-delivery-page .fc-cards-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 4px 28px 2px;
+  scroll-padding-bottom: 28px;
+  scrollbar-gutter: stable;
+}
+
+.ficha-delivery-page .fc-cards-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ficha-delivery-page .fc-cards-scroll::-webkit-scrollbar-thumb {
+  background: rgba(207, 175, 101, 0.34);
+  border-radius: 999px;
+}
+
+.ficha-delivery-page .fc-cards-grid {
+  flex: initial;
+  min-height: auto;
+  overflow: visible;
+  padding: 0;
+  scroll-padding-bottom: 0;
+  scrollbar-gutter: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+  align-items: start;
+  grid-auto-flow: row;
+  grid-auto-rows: auto;
+}
+
+.ficha-delivery-page .fc-card-item {
+  height: auto;
+  min-height: 220px;
+  overflow: visible;
+  align-self: start;
+  contain: none;
+}
+
+/* FC-02.4: wrapper definitivo de scroll para Cards da Ficha Cliente */
+.ficha-delivery-page .fc-cards-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 4px 28px 2px;
+  scroll-padding-bottom: 28px;
+  scrollbar-gutter: stable;
+}
+
+.ficha-delivery-page .fc-cards-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ficha-delivery-page .fc-cards-scroll::-webkit-scrollbar-thumb {
+  background: rgba(207, 175, 101, 0.34);
+  border-radius: 999px;
+}
+
+.ficha-delivery-page .fc-cards-grid {
+  flex: initial;
+  min-height: auto;
+  overflow: visible;
+  padding: 0;
+  scroll-padding-bottom: 0;
+  scrollbar-gutter: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+  align-items: start;
+  grid-auto-flow: row;
+  grid-auto-rows: auto;
+}
+
+.ficha-delivery-page .fc-card-item {
+  height: auto;
+  min-height: 220px;
+  overflow: visible;
+  align-self: start;
+  contain: none;
+}
+
+/* FC-02.3: grid de Cards respeitando a altura real dos cards */
+.ficha-delivery-page .fc-cards-grid {
+  grid-auto-flow: row;
+  grid-auto-rows: max-content;
+  align-items: start;
+  row-gap: 18px;
+}
+
+.ficha-delivery-page .fc-card-item {
+  height: auto;
+  min-height: max-content;
+  overflow: visible;
+  contain: none;
+}
+
+.ficha-delivery-page .fc-card-meta {
+  margin-top: 0;
+}
+
+.ficha-delivery-page .fc-card-meta-item {
+  flex-wrap: wrap;
+}
+
+/* FC-02.2 final EOF: conteúdo interno dos cards sem corte */
+.ficha-delivery-page .fc-cards-grid {
+  grid-auto-rows: auto;
+  align-items: start;
+}
+
+.ficha-delivery-page .fc-card-item {
+  height: auto;
+  min-height: 220px;
+  overflow: visible;
+  align-self: start;
+}
+
+.ficha-delivery-page .fc-card-top,
+.ficha-delivery-page .fc-card-body,
+.ficha-delivery-page .fc-card-meta,
+.ficha-delivery-page .fc-card-meta-item {
+  min-width: 0;
+  overflow: visible;
+}
+
+.ficha-delivery-page .fc-card-meta-item {
+  align-items: flex-start;
+}
+
+.ficha-delivery-page .fc-card-meta-item strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+/* FC-02.2 final: conteúdo interno dos cards sem corte */
+.ficha-delivery-page .fc-cards-grid {
+  grid-auto-rows: auto;
+  align-items: start;
+}
+
+.ficha-delivery-page .fc-card-item {
+  height: auto;
+  min-height: 220px;
+  overflow: visible;
+  align-self: start;
+}
+
+.ficha-delivery-page .fc-card-top,
+.ficha-delivery-page .fc-card-body,
+.ficha-delivery-page .fc-card-meta,
+.ficha-delivery-page .fc-card-meta-item {
+  min-width: 0;
+  overflow: visible;
+}
+
+.ficha-delivery-page .fc-card-meta-item {
+  align-items: flex-start;
+}
+
+.ficha-delivery-page .fc-card-meta-item strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+/* FC-02.2 final: conteúdo interno dos cards sem corte */
+.ficha-delivery-page .fc-cards-grid {
+  grid-auto-rows: auto;
+  align-items: start;
+}
+
+.ficha-delivery-page .fc-card-item {
+  height: auto;
+  min-height: 220px;
+  overflow: visible;
+  align-self: start;
+}
+
+.ficha-delivery-page .fc-card-top,
+.ficha-delivery-page .fc-card-body,
+.ficha-delivery-page .fc-card-meta,
+.ficha-delivery-page .fc-card-meta-item {
+  min-width: 0;
+  overflow: visible;
+}
+
+.ficha-delivery-page .fc-card-meta-item {
+  align-items: flex-start;
+}
+
+.ficha-delivery-page .fc-card-meta-item strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+/* FC-02.2: cards crescem conforme o conteúdo interno */
+.ficha-delivery-page .fc-cards-grid {
+  grid-auto-rows: auto;
+  align-items: start;
+}
+
+.ficha-delivery-page .fc-card-item {
+  height: auto;
+  min-height: 220px;
+  overflow: visible;
+  align-self: start;
+}
+
+.ficha-delivery-page .fc-card-top,
+.ficha-delivery-page .fc-card-body,
+.ficha-delivery-page .fc-card-meta,
+.ficha-delivery-page .fc-card-meta-item {
+  min-width: 0;
+  overflow: visible;
+}
+
+.ficha-delivery-page .fc-card-meta-item {
+  align-items: flex-start;
+}
+
+.ficha-delivery-page .fc-card-meta-item strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+/* FC-02: scroll interno da listagem em modo Cards */
+.ficha-delivery-page .fc-cards-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 4px 28px 2px;
+  scroll-padding-bottom: 28px;
+  scrollbar-gutter: stable;
+}
+
+.ficha-delivery-page .fc-cards-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ficha-delivery-page .fc-cards-grid::-webkit-scrollbar-thumb {
+  background: rgba(207, 175, 101, 0.34);
+  border-radius: 999px;
+}
 
 /* Brand 2I: perfil do usuário na sidebar com identidade STIK */
 .account-block {
@@ -5756,6 +6049,10 @@ tbody tr:nth-child(even):hover td {
   line-height: 1.25;
 }
 
+.fc-prazo-autocomplete-option .fc-prazo-autocomplete-meta {
+  display: none;
+}
+
 .fc-prazo-autocomplete-empty {
   padding: 14px 12px;
   color: var(--text-soft);
@@ -6143,13 +6440,10 @@ tbody tr:nth-child(even):hover td {
 
 .fc-analise-inline-field-valor input,
 .fc-analise-inline-field-valor .fc-prazo-autocomplete,
+.fc-analise-inline-field-pagamento input,
+.fc-analise-inline-field-pagamento .fc-prazo-autocomplete,
 .fc-analise-inline-field-prazo input,
 .fc-analise-inline-field-prazo .fc-prazo-autocomplete {
-  max-width: 180px;
-}
-
-.fc-analise-inline-field-pagamento input,
-.fc-analise-inline-field-pagamento .fc-prazo-autocomplete {
   max-width: 260px;
 }
 
@@ -6483,4 +6777,78 @@ tbody tr:nth-child(even):hover td {
 .ficha-delivery-page .fc-view-btn:focus-visible {
   outline: 3px solid rgba(221, 191, 122, 0.24);
   outline-offset: 2px;
+}
+/* FC-02.2 final EOF: conteúdo interno dos cards sem corte */
+.ficha-delivery-page .fc-cards-grid {
+  grid-auto-rows: auto;
+  align-items: start;
+}
+
+.ficha-delivery-page .fc-card-item {
+  height: auto;
+  min-height: 220px;
+  overflow: visible;
+  align-self: start;
+}
+
+.ficha-delivery-page .fc-card-top,
+.ficha-delivery-page .fc-card-body,
+.ficha-delivery-page .fc-card-meta,
+.ficha-delivery-page .fc-card-meta-item {
+  min-width: 0;
+  overflow: visible;
+}
+
+.ficha-delivery-page .fc-card-meta-item {
+  align-items: flex-start;
+}
+
+.ficha-delivery-page .fc-card-meta-item strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  line-height: 1.35;
+}
+/* FC-02.4 final EOF: wrapper definitivo de scroll para Cards da Ficha Cliente */
+.ficha-delivery-page .fc-cards-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 4px 28px 2px;
+  scroll-padding-bottom: 28px;
+  scrollbar-gutter: stable;
+}
+
+.ficha-delivery-page .fc-cards-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ficha-delivery-page .fc-cards-scroll::-webkit-scrollbar-thumb {
+  background: rgba(207, 175, 101, 0.34);
+  border-radius: 999px;
+}
+
+.ficha-delivery-page .fc-cards-grid {
+  flex: initial;
+  min-height: auto;
+  overflow: visible;
+  padding: 0;
+  scroll-padding-bottom: 0;
+  scrollbar-gutter: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+  align-items: start;
+  grid-auto-flow: row;
+  grid-auto-rows: auto;
+}
+
+.ficha-delivery-page .fc-card-item {
+  height: auto;
+  min-height: 220px;
+  overflow: visible;
+  align-self: start;
+  contain: none;
 }
