@@ -752,6 +752,64 @@ async function downloadAnexo(assetPath, nome) {
   }
 }
 
+function renderFichaAttachmentDownloadButtonContent() {
+  return `
+    <span class="fc-attachment-download-icon" aria-hidden="true">
+      ${renderFichaAttachmentDownloadIcon("download")}
+    </span>
+    <span class="fc-attachment-download-label">Baixar</span>
+  `;
+}
+
+function renderFichaAttachmentDownloadIcon(stateName = "download") {
+  if (stateName === "done") {
+    return `
+      <svg viewBox="0 0 24 24" focusable="false">
+        <path d="M5 12.5 9.3 17 19 7" />
+      </svg>
+    `;
+  }
+  if (stateName === "loading") {
+    return `
+      <svg viewBox="0 0 24 24" focusable="false">
+        <path d="M12 3a9 9 0 1 1-8.1 5.1" />
+      </svg>
+    `;
+  }
+  return `
+    <svg viewBox="0 0 24 24" focusable="false">
+      <path d="M12 4v10m0 0 4-4m-4 4-4-4" />
+      <path d="M5 18v1.5A1.5 1.5 0 0 0 6.5 21h13A1.5 1.5 0 0 0 21 19.5V18" />
+    </svg>
+  `;
+}
+
+function setFichaAttachmentDownloadState(button) {
+  if (!button) return;
+  window.clearTimeout(button._downloadReadyTimer);
+  window.clearTimeout(button._downloadResetTimer);
+
+  const label = button.querySelector(".fc-attachment-download-label");
+  const icon = button.querySelector(".fc-attachment-download-icon");
+  button.classList.remove("is-done");
+  button.classList.add("is-downloading");
+  if (label) label.textContent = "Baixando...";
+  if (icon) icon.innerHTML = renderFichaAttachmentDownloadIcon("loading");
+
+  button._downloadReadyTimer = window.setTimeout(() => {
+    button.classList.remove("is-downloading");
+    button.classList.add("is-done");
+    if (label) label.textContent = "Pronto";
+    if (icon) icon.innerHTML = renderFichaAttachmentDownloadIcon("done");
+  }, 900);
+
+  button._downloadResetTimer = window.setTimeout(() => {
+    button.classList.remove("is-downloading", "is-done");
+    if (label) label.textContent = "Baixar";
+    if (icon) icon.innerHTML = renderFichaAttachmentDownloadIcon("download");
+  }, 2100);
+}
+
 function toCsv(rows, columns) {
   const header = columns.map((c) => c.label).join(";");
   const lines = rows.map((row) =>
@@ -3290,14 +3348,15 @@ function buildFichaClienteDetailSection(title, items) {
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
         ${items
-          .map(
-            (item) => `
-              <div style="padding:14px 14px 13px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+          .map((item) => {
+            const fieldValue = item.value || "-";
+            return `
+              <div class="fc-detail-field" style="padding:14px 14px 13px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
                 <small style="display:block;color:var(--text-soft);margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">${escapeHtml(item.label)}</small>
-                <div style="font-size:14px;font-weight:700;color:var(--text-strong);line-height:1.45;">${escapeHtml(item.value || "-")}</div>
+                <div class="fc-detail-field-value" title="${escapeHtml(fieldValue)}" style="font-size:14px;font-weight:700;color:var(--text-strong);line-height:1.45;">${escapeHtml(fieldValue)}</div>
               </div>
-            `
-          )
+            `;
+          })
           .join("")}
       </div>
     </section>
@@ -3315,7 +3374,7 @@ function buildFichaClienteAnexos(anexos) {
             <strong style="display:block;word-break:break-word;">${escapeHtml(item.nome || "Anexo")}</strong>
             ${item.assetPath ?`<div style="color:var(--text-soft);font-size:11px;word-break:break-all;margin-top:2px;">${escapeHtml(item.assetPath)}</div>` : ""}
           </div>
-          ${item.assetPath ?`<button class="ficha-download-btn" data-asset-path="${escapeHtml(item.assetPath)}" data-nome="${escapeHtml(item.nome || "anexo")}" style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;background:#0145F2;color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;">&#8595; Baixar</button>` : ""}
+          ${item.assetPath ?`<button class="ficha-download-btn fc-attachment-download-btn" type="button" data-asset-path="${escapeHtml(item.assetPath)}" data-nome="${escapeHtml(item.nome || "anexo")}" aria-label="Baixar anexo ${escapeHtml(item.nome || "anexo")}">${renderFichaAttachmentDownloadButtonContent()}</button>` : ""}
         </div>
       `
     )
@@ -3480,26 +3539,31 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
           <span style="display:block;margin-bottom:6px;">Observação da análise</span>
           <textarea id="ficha-analise-observacao" class="upload-input" style="min-height:132px;width:100%;border-radius:16px;" ${isFinal ?"disabled" : ""}>${escapeHtml(ficha.observacaoAnalise || "")}</textarea>
         </label>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px;">
-          <label>Valor do pedido aprovado
-            <input id="ficha-analise-valor-pedido" class="upload-input" value="${escapeHtml(pagamentoAnalise.valorPedido || "")}" ${isFinal ?"disabled" : ""} />
-          </label>
-          <label>Forma de pagamento aprovada
+        <div class="fc-analise-inline-fields">
+          <div class="fc-analise-inline-field fc-analise-inline-field-valor">
+            <label for="ficha-analise-valor-pedido">Valor</label>
+            <input id="ficha-analise-valor-pedido" class="upload-input" placeholder="R$ 0,00" value="${escapeHtml(pagamentoAnalise.valorPedido || "")}" ${isFinal ?"disabled" : ""} />
+          </div>
+          <div class="fc-analise-inline-field fc-analise-inline-field-pagamento">
+            <label for="ficha-analise-forma-pagamento">Pagamento</label>
             <input
               id="ficha-analise-forma-pagamento"
               class="upload-input"
+              placeholder="Selecione ou pesquise"
               value="${escapeHtml(pagamentoAnalise.formaPagamento || "")}"
               ${isFinal ?"disabled" : ""}
             />
-          </label>
-          <label>Prazo estimado aprovado
+          </div>
+          <div class="fc-analise-inline-field fc-analise-inline-field-prazo">
+            <label for="ficha-analise-prazo-estimado">Prazo</label>
             <input
               id="ficha-analise-prazo-estimado"
               class="upload-input"
+              placeholder="Digite ou pesquise"
               value="${escapeHtml(pagamentoAnalise.prazoEstimado || "")}"
               ${isFinal ?"disabled" : ""}
             />
-          </label>
+          </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px;">
           <div>
@@ -3654,26 +3718,31 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
           <span style="display:block;margin-bottom:6px;">Observação da análise</span>
           <textarea id="ficha-analise-observacao" class="upload-input" style="min-height:132px;width:100%;border-radius:16px;" ${isFinal ?"disabled" : ""}>${escapeHtml(ficha.observacaoAnalise || "")}</textarea>
         </label>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px;">
-          <label>Valor do pedido aprovado
-            <input id="ficha-analise-valor-pedido" class="upload-input" value="${escapeHtml(pagamentoAnalise.valorPedido || "")}" ${isFinal ?"disabled" : ""} />
-          </label>
-          <label>Forma de pagamento aprovada
+        <div class="fc-analise-inline-fields">
+          <div class="fc-analise-inline-field fc-analise-inline-field-valor">
+            <label for="ficha-analise-valor-pedido">Valor</label>
+            <input id="ficha-analise-valor-pedido" class="upload-input" placeholder="R$ 0,00" value="${escapeHtml(pagamentoAnalise.valorPedido || "")}" ${isFinal ?"disabled" : ""} />
+          </div>
+          <div class="fc-analise-inline-field fc-analise-inline-field-pagamento">
+            <label for="ficha-analise-forma-pagamento">Pagamento</label>
             <input
               id="ficha-analise-forma-pagamento"
               class="upload-input"
+              placeholder="Selecione ou pesquise"
               value="${escapeHtml(pagamentoAnalise.formaPagamento || "")}"
               ${isFinal ?"disabled" : ""}
             />
-          </label>
-          <label>Prazo estimado aprovado
+          </div>
+          <div class="fc-analise-inline-field fc-analise-inline-field-prazo">
+            <label for="ficha-analise-prazo-estimado">Prazo</label>
             <input
               id="ficha-analise-prazo-estimado"
               class="upload-input"
+              placeholder="Digite ou pesquise"
               value="${escapeHtml(pagamentoAnalise.prazoEstimado || "")}"
               ${isFinal ?"disabled" : ""}
             />
-          </label>
+          </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px;">
           <div>
@@ -3819,6 +3888,7 @@ function renderFichaCliente() {
     });
     document.querySelectorAll(".ficha-download-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
+        setFichaAttachmentDownloadState(btn);
         downloadAnexo(btn.dataset.assetPath, btn.dataset.nome).catch((e) => alert(e.message));
       });
     });
