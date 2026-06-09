@@ -824,6 +824,141 @@ function toCsv(rows, columns) {
   return [header, ...lines].join("\n");
 }
 
+function formatReportGeneratedAt(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, "0");
+  const day = pad(date.getDate());
+  const month = pad(date.getMonth() + 1);
+  const year = date.getFullYear();
+  const hour = pad(date.getHours());
+  const minute = pad(date.getMinutes());
+  return `${day}/${month}/${year} ${hour}:${minute}`;
+}
+
+function buildPrintableReportHtml({ title, baseName, columns, rows }) {
+  const logoUrl = new URL("assets/logo-stik-report.png", window.location.href).href;
+  const generatedAt = formatReportGeneratedAt();
+  const tableHeader = columns.map((c) => `<th>${escapeHtml(c.label)}</th>`).join("");
+  const tableBody = rows
+    .map((row) => `<tr>${columns.map((c) => `<td>${escapeHtml(c.value(row))}</td>`).join("")}</tr>`)
+    .join("");
+
+  return `
+    <!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8" />
+        <title>${escapeHtml(baseName)}</title>
+        <style>
+          body {
+            margin: 0;
+            padding: 28px;
+            color: #111827;
+            font-family: Arial, "Manrope", sans-serif;
+            background: #ffffff;
+          }
+
+          .report-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 32px;
+            margin-bottom: 20px;
+          }
+
+          .report-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-width: 150px;
+          }
+
+          .report-brand img {
+            display: block;
+            width: 150px;
+            height: auto;
+            max-height: 68px;
+            object-fit: contain;
+          }
+
+          .report-title {
+            margin: 0;
+            color: #111827;
+            font-size: 26px;
+            line-height: 1.2;
+            font-weight: 900;
+            text-align: right;
+          }
+
+          .report-meta {
+            margin: 6px 0 0;
+            color: #6B7280;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: right;
+          }
+
+          .report-rule {
+            height: 3px;
+            margin: 0 0 20px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #DDBF7A 0%, #CFAF65 42%, rgba(221, 191, 122, 0.18) 100%);
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+
+          th,
+          td {
+            border: 1px solid #D1D5DB;
+            padding: 8px;
+            text-align: left;
+            font-size: 12px;
+            vertical-align: top;
+          }
+
+          th {
+            color: #111827;
+            background: #F7EBCB;
+            font-weight: 800;
+          }
+
+          tbody tr:nth-child(even) td {
+            background: #F9FAFB;
+          }
+
+          @media print {
+            body {
+              padding: 20px;
+            }
+
+            .report-header {
+              break-inside: avoid;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <header class="report-header">
+          <div class="report-brand">
+            <img class="print-logo" src="${escapeHtml(logoUrl)}" alt="STIK" />
+          </div>
+          <div>
+            <h2 class="report-title">${escapeHtml(title)}</h2>
+            <p class="report-meta">Relat&oacute;rio gerado em ${escapeHtml(generatedAt)}</p>
+          </div>
+        </header>
+        <div class="report-rule"></div>
+        <table>
+          <thead><tr>${tableHeader}</tr></thead>
+          <tbody>${tableBody}</tbody>
+        </table>
+      </body>
+    </html>
+  `;
+}
+
 function exportRows(tableType, rows, format) {
   const ownerKey = tableType === "receber" ?"cliente" : "fornecedor";
   const columns = [
@@ -849,20 +984,32 @@ function exportRows(tableType, rows, format) {
   } else if (format === "pdf") {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-    const html = `
-      <html>
-        <head><title>${baseName}</title><style>body{font-family:Arial,sans-serif;padding:24px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:12px}</style></head>
-        <body>
-          <h2>${tableType === "receber" ?"Contas a Receber" : "Contas a Pagar"}</h2>
-          <table><thead><tr>${columns.map((c) => `<th>${escapeHtml(c.label)}</th>`).join("")}</tr></thead>
-          <tbody>${rows.map((row) => `<tr>${columns.map((c) => `<td>${escapeHtml(c.value(row))}</td>`).join("")}</tr>`).join("")}</tbody></table>
-        </body>
-      </html>
-    `;
+    const html = buildPrintableReportHtml({
+      title: tableType === "receber" ?"Contas a Receber" : "Contas a Pagar",
+      baseName,
+      columns,
+      rows
+    });
     printWindow.document.write(html);
     printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
+    const printReport = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
+    const logo = printWindow.document.querySelector(".print-logo");
+    if (logo && !logo.complete) {
+      let printed = false;
+      const safePrint = () => {
+        if (printed) return;
+        printed = true;
+        printReport();
+      };
+      logo.addEventListener("load", safePrint, { once: true });
+      logo.addEventListener("error", safePrint, { once: true });
+      window.setTimeout(safePrint, 900);
+    } else {
+      window.setTimeout(printReport, 100);
+    }
   }
   void fetchJson("/api/audit", {
     method: "POST",
