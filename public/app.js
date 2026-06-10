@@ -4476,7 +4476,7 @@ applySidebarState();
 
 function renderFluxoCaixa() {
   const meses = state.fluxoCaixaMeses;
-  const rows = state.fluxoCaixa.filter((r) => r.MesesProjecao === meses);
+  const rows = state.fluxoCaixa.filter((r) => Number(r.MesesProjecao) === meses);
   const errorBlock = state.fluxoCaixaError
     ? `<p class="fxc-error">${escapeHtml(state.fluxoCaixaError)}</p>`
     : "";
