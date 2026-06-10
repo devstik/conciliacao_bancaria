@@ -1307,7 +1307,7 @@ app.get("/api/ficha-cliente/anexo", requireAuth, async (req, res) => {
     const token = await getNodeApiToken();
     const upstream = await fetch(assetUrl.toString(), { headers: { Authorization: `Bearer ${token}` } });
     if (!upstream.ok) {
-      return res.status(upstream.status).json({ message: "Arquivo não encontrado na API." });
+      return res.status(upstream.status).json({ message: `Arquivo não encontrado na API (HTTP ${upstream.status}).` });
     }
     const contentType = upstream.headers.get("content-type") || "application/octet-stream";
     const contentDisposition = upstream.headers.get("content-disposition") || `attachment; filename="${path.basename(assetUrl.pathname)}"`;
@@ -1377,6 +1377,19 @@ app.patch("/api/ficha-cliente/:id/analise", requireAuth, async (req, res) => {
     return res.json({ row, source: "nodeapi" });
   } catch (error) {
     return res.status(502).json({ message: error.message || "Falha ao salvar análise da ficha na NodeAPI." });
+  }
+});
+
+app.get("/api/fluxo-caixa", requireAuth, async (req, res) => {
+  try {
+    const query = {};
+    if (req.query.mesesProjecao) query.mesesProjecao = req.query.mesesProjecao;
+    if (req.query.dataInicial) query.dataInicial = req.query.dataInicial;
+    if (req.query.dataFinal) query.dataFinal = req.query.dataFinal;
+    const data = await fetchNodeApiJson("/api/fluxo-caixa", { query });
+    return res.json({ data: Array.isArray(data.data) ? data.data : [], source: "nodeapi" });
+  } catch (error) {
+    return res.status(502).json({ message: error.message || "Falha ao consultar fluxo de caixa na NodeAPI." });
   }
 });
 

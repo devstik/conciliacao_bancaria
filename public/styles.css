@@ -5179,32 +5179,32 @@ tbody tr:nth-child(even):hover td {
 }
 
 .fc-status-badge.pendente {
-  background: #f1f5f9;
-  color: #475569;
-  border-color: #d1dce8;
+  background: var(--bg-main);
+  color: var(--text-soft);
+  border-color: var(--line);
 }
 
 .fc-status-badge.em_analise {
-  background: rgba(1, 69, 242, 0.10);
-  color: #0145F2;
-  border-color: rgba(1, 69, 242, 0.22);
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent-active);
 }
 
 .fc-status-badge.aprovada {
-  background: rgba(22, 163, 74, 0.10);
-  color: #16a34a;
+  background: var(--success-light);
+  color: var(--success);
   border-color: rgba(22, 163, 74, 0.22);
 }
 
 .fc-status-badge.reprovada {
-  background: rgba(220, 38, 38, 0.10);
-  color: #dc2626;
+  background: var(--danger-light);
+  color: var(--danger);
   border-color: rgba(220, 38, 38, 0.22);
 }
 
 .fc-status-badge.aprovada_com_ressalvas {
-  background: rgba(217, 119, 6, 0.10);
-  color: #d97706;
+  background: var(--warn-light);
+  color: var(--warn);
   border-color: rgba(217, 119, 6, 0.22);
 }
 
@@ -5216,23 +5216,23 @@ tbody tr:nth-child(even):hover td {
 }
 
 .fc-table-action {
-  border: 1px solid rgba(1, 69, 242, 0.20);
-  background: #ffffff;
-  color: var(--accent);
+  border: 1.5px solid var(--brand-primary);
+  background: transparent;
+  color: var(--text-strong);
   min-height: 36px;
   border-radius: 12px;
   padding: 9px 14px;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
 }
 
 .fc-table-action:hover {
-  background: rgba(1, 69, 242, 0.06);
-  border-color: rgba(1, 69, 242, 0.34);
-  box-shadow: 0 2px 10px rgba(1, 69, 242, 0.10);
+  background: var(--brand-primary-soft);
+  border-color: var(--brand-primary-hover);
+  box-shadow: 0 2px 10px rgba(207, 175, 101, 0.18);
   transform: translateY(-1px);
 }
 
@@ -6175,38 +6175,33 @@ tbody tr:nth-child(even):hover td {
 
 .fc-attachment-download-btn {
   flex-shrink: 0;
-  min-height: 38px;
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 9px 14px;
-  border: 1px solid rgba(1, 69, 242, 0.24);
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(1, 69, 242, 0.94), rgba(14, 165, 233, 0.88));
-  color: #ffffff;
+  gap: 7px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-hover) 100%);
+  color: #111827;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.01em;
-  box-shadow: 0 10px 22px rgba(1, 69, 242, 0.18);
+  box-shadow: 0 4px 14px rgba(207, 175, 101, 0.26), inset 0 1px 0 rgba(255,255,255,0.28);
   cursor: pointer;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    border-color 0.2s ease,
-    background 0.2s ease;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .fc-attachment-download-btn:hover,
 .fc-attachment-download-btn:focus-visible {
-  transform: translateY(-1px) scale(1.03);
-  border-color: rgba(103, 232, 249, 0.72);
-  background: linear-gradient(135deg, rgba(1, 69, 242, 1), rgba(6, 182, 212, 0.94));
-  box-shadow: 0 14px 30px rgba(1, 69, 242, 0.26), 0 0 0 4px rgba(14, 165, 233, 0.12);
+  background: linear-gradient(135deg, var(--brand-primary-hover) 0%, #b88f3d 100%);
+  box-shadow: 0 6px 20px rgba(207, 175, 101, 0.36);
+  transform: translateY(-1px);
 }
 
 .fc-attachment-download-btn:focus-visible {
-  outline: 3px solid rgba(14, 165, 233, 0.26);
+  outline: 3px solid var(--brand-focus);
   outline-offset: 2px;
 }
 
@@ -6217,7 +6212,7 @@ tbody tr:nth-child(even):hover td {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.06);
   transition: transform 0.2s ease, background 0.2s ease;
 }
 
@@ -6239,12 +6234,13 @@ tbody tr:nth-child(even):hover td {
 .fc-attachment-download-btn:hover .fc-attachment-download-icon,
 .fc-attachment-download-btn:focus-visible .fc-attachment-download-icon {
   transform: translateY(1px);
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .fc-attachment-download-btn.is-downloading {
   pointer-events: none;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(1, 69, 242, 0.86));
+  background: linear-gradient(135deg, var(--brand-primary-hover) 0%, #b88f3d 100%);
+  opacity: 0.72;
 }
 
 .fc-attachment-download-btn.is-downloading .fc-attachment-download-icon {
@@ -6252,9 +6248,9 @@ tbody tr:nth-child(even):hover td {
 }
 
 .fc-attachment-download-btn.is-done {
-  background: linear-gradient(135deg, rgba(22, 163, 74, 0.96), rgba(20, 184, 166, 0.9));
-  border-color: rgba(34, 197, 94, 0.45);
-  box-shadow: 0 12px 26px rgba(22, 163, 74, 0.22);
+  background: linear-gradient(135deg, var(--success) 0%, #15803d 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.22);
 }
 
 .fc-attachment-download-btn.is-done .fc-attachment-download-icon {
@@ -6851,4 +6847,129 @@ tbody tr:nth-child(even):hover td {
   overflow: visible;
   align-self: start;
   contain: none;
+}
+
+/* ── Fluxo de Caixa ─────────────────────────────────────────────── */
+.fxc-page .fc-header { margin-bottom: 20px; }
+
+.fxc-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+}
+
+.fxc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.fxc-table thead th {
+  padding: 11px 16px;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff !important;
+  white-space: nowrap;
+  background: linear-gradient(90deg, var(--brand-primary) 0%, var(--brand-primary-hover) 100%) !important;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: none !important;
+}
+
+.fxc-th-date { text-align: left; }
+.fxc-th-money,
+.fxc-th-saldo { text-align: right; }
+.fxc-th-saldo { min-width: 160px; }
+
+.fxc-table tbody tr {
+  border-bottom: 1px solid var(--line);
+  transition: background var(--transition-fast);
+}
+
+.fxc-table tbody tr:last-child { border-bottom: none; }
+
+.fxc-row-positive { background: var(--card); }
+.fxc-row-negative { background: rgba(220, 38, 38, 0.028); }
+
+.fxc-table tbody tr:hover { background: var(--brand-primary-soft); }
+
+.fxc-td-date {
+  padding: 9px 16px;
+  color: var(--text-strong);
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.fxc-td-money {
+  padding: 9px 16px;
+  text-align: right;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.fxc-td-saldo { font-weight: 700; }
+
+.fxc-val-positive { color: var(--success) !important; }
+.fxc-val-negative { color: var(--danger) !important; }
+
+.fxc-tfoot-row {
+  border-top: 2px solid var(--brand-primary);
+  background: var(--brand-primary-soft) !important;
+}
+
+.fxc-tfoot-label {
+  padding: 11px 16px;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-strong);
+}
+
+.fxc-tfoot-val {
+  padding: 11px 16px;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-strong);
+}
+
+.fxc-error {
+  color: var(--danger);
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+
+.fxc-empty {
+  color: var(--text-soft);
+  font-size: 14px;
+  margin: 24px 0 0;
+}
+
+.fxc-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.fxc-skel-row {
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--line) 25%, #f0f0f0 50%, var(--line) 75%);
+  background-size: 400% 100%;
+  animation: fxc-shimmer 1.4s infinite;
+}
+
+@keyframes fxc-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }

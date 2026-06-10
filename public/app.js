@@ -20,6 +20,10 @@ const state = {
   },
   fichaClienteView: "scroll",
   fichaClienteLoading: false,
+  fluxoCaixa: [],
+  fluxoCaixaError: "",
+  fluxoCaixaLoading: false,
+  fluxoCaixaMeses: 1,
   receberFilter: getDefaultReceberFilter(),
   pagarFilter: getDefaultDateRange(),
   conciliationBankFilter: "ALL",
@@ -115,6 +119,12 @@ const menuItems = [
     label: "Ficha de Cliente",
     icon:
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4V5zm2 2v10h12V7H6zm2 1h5v2H8V8zm0 3h8v2H8v-2zm0 3h8v2H8v-2z"/></svg>'
+  },
+  {
+    id: "fluxo-caixa",
+    label: "Fluxo de Caixa",
+    icon:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v2H3V3zm0 16h18v2H3v-2zM3 8h4v8H3V8zm6 2h4v6H9v-6zm6-4h4v12h-4V6z"/></svg>'
   },
 ];
 
@@ -230,6 +240,7 @@ function resetSessionState() {
   state.receber = [];
   state.pagar = [];
   state.fichaCliente = [];
+  state.fluxoCaixa = [];
   state.ofxResult = null;
   state.ofxAccumulated = [];
   state.reconciliationJobs = [];
@@ -546,6 +557,9 @@ async function setActiveScreen(screen) {
     if (screen === "ficha-cliente") {
       renderFichaCliente();
     }
+    if (screen === "fluxo-caixa") {
+      renderFluxoCaixa();
+    }
     return;
   }
 
@@ -570,6 +584,10 @@ async function setActiveScreen(screen) {
 
   if (screen === "ficha-cliente") {
     await loadFichaClienteData(state.fichaClienteFilter);
+  }
+
+  if (screen === "fluxo-caixa") {
+    await loadFluxoCaixaData();
   }
 
 }
@@ -3492,7 +3510,7 @@ function buildFichaClienteDetailSection(title, items) {
   return `
     <section class="fc-detail-section" style="margin-bottom:18px;">
       <div class="fc-detail-section-header" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-        <div style="width:8px;height:8px;border-radius:999px;background:#0145F2;box-shadow:0 0 0 6px rgba(1,69,242,0.12);"></div>
+        <div style="width:8px;height:8px;border-radius:999px;background:var(--brand-primary);box-shadow:0 0 0 6px var(--brand-focus);"></div>
         <h4 style="margin:0;font-size:15px;letter-spacing:0.01em;">${title}</h4>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
@@ -3500,7 +3518,7 @@ function buildFichaClienteDetailSection(title, items) {
           .map((item) => {
             const fieldValue = item.value || "-";
             return `
-              <div class="fc-detail-field" style="padding:14px 14px 13px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+              <div class="fc-detail-field" style="padding:14px 14px 13px;border:1px solid var(--line);border-radius:16px;background:var(--bg-main);box-shadow:var(--shadow-sm);">
                 <small style="display:block;color:var(--text-soft);margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">${escapeHtml(item.label)}</small>
                 <div class="fc-detail-field-value" title="${escapeHtml(fieldValue)}" style="font-size:14px;font-weight:700;color:var(--text-strong);line-height:1.45;">${escapeHtml(fieldValue)}</div>
               </div>
@@ -3518,7 +3536,7 @@ function buildFichaClienteAnexos(anexos) {
   return `<div style="display:grid;gap:8px;">${anexos
     .map(
       (item) => `
-        <div style="padding:14px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div style="padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--bg-main);display:flex;align-items:center;justify-content:space-between;gap:12px;">
           <div style="min-width:0;">
             <strong style="display:block;word-break:break-word;">${escapeHtml(item.nome || "Anexo")}</strong>
             ${item.assetPath ?`<div style="color:var(--text-soft);font-size:11px;word-break:break-all;margin-top:2px;">${escapeHtml(item.assetPath)}</div>` : ""}
@@ -3542,30 +3560,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
     reprovada: "Reprovada",
     aprovada_com_ressalvas: "Aprovada com ressalvas"
   };
-  const statusToneMap = {
-    em_analise: {
-      bg: "rgba(1,69,242,0.10)",
-      border: "rgba(1,69,242,0.22)",
-      text: "#0145F2"
-    },
-    aprovada: {
-      bg: "rgba(22,163,74,0.10)",
-      border: "rgba(22,163,74,0.22)",
-      text: "#16a34a"
-    },
-    reprovada: {
-      bg: "rgba(220,38,38,0.10)",
-      border: "rgba(220,38,38,0.22)",
-      text: "#dc2626"
-    },
-    aprovada_com_ressalvas: {
-      bg: "rgba(217,119,6,0.10)",
-      border: "rgba(217,119,6,0.22)",
-      text: "#d97706"
-    }
-  };
   const currentStatus = ficha.statusAnalise || "em_analise";
-  const statusTone = statusToneMap[currentStatus] || statusToneMap.em_analise;
   const analysisOptions = [
     { value: "em_analise", label: "Em análise" },
     { value: "aprovada", label: "Aprovada" },
@@ -3583,19 +3578,19 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
         <div style="display:flex;flex-direction:column;gap:10px;">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <h3 style="margin:0;font-size:24px;letter-spacing:-0.02em;">Análise da Ficha #${ficha.id}</h3>
-            <span style="display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:${statusTone.bg};border:1px solid ${statusTone.border};color:${statusTone.text};font-size:12px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;">${escapeHtml(statusLabelMap[currentStatus] || "Em análise")}</span>
+            <span class="fc-status-badge ${escapeHtml(currentStatus)}">${escapeHtml(statusLabelMap[currentStatus] || "Em análise")}</span>
           </div>
           <p style="margin:0;color:var(--text-soft);font-size:15px;max-width:720px;">${escapeHtml(ficha.razaoSocial || ficha.nomeFantasia || "Sem razão social")}</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <div style="padding:10px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2eaf0;">
+            <div style="padding:10px 14px;border-radius:14px;background:var(--bg-main);border:1px solid var(--line);">
               <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Vendedor</small>
               <strong style="font-size:13px;">${escapeHtml(ficha.vendedor || "-")}</strong>
             </div>
-            <div style="padding:10px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2eaf0;">
+            <div style="padding:10px 14px;border-radius:14px;background:var(--bg-main);border:1px solid var(--line);">
               <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Data da ficha</small>
               <strong style="font-size:13px;">${escapeHtml(parseDate(ficha.data) || "-")}</strong>
             </div>
-            <div style="padding:10px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2eaf0;">
+            <div style="padding:10px 14px;border-radius:14px;background:var(--bg-main);border:1px solid var(--line);">
               <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Tipo</small>
               <strong style="font-size:13px;">${escapeHtml(ficha.tipo || "-")}</strong>
             </div>
@@ -3646,7 +3641,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
       ])}
       <div style="margin-bottom:16px;">
         <h4 style="margin:0 0 8px 0;">Parecer do Representante</h4>
-        <div style="padding:16px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;white-space:pre-wrap;line-height:1.6;">${escapeHtml(ficha.parecer || "-")}</div>
+        <div style="padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--bg-main);white-space:pre-wrap;line-height:1.6;">${escapeHtml(ficha.parecer || "-")}</div>
       </div>
       <div style="margin-bottom:16px;">
         <h4 style="margin:0 0 8px 0;">Anexos</h4>
@@ -3656,22 +3651,22 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
   const analysisPaneHtml = `
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:14px;">
           <div>
-            <small style="display:block;color:#0145F2;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">Resultado da análise</small>
+            <small style="display:block;color:var(--brand-primary-hover);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">Resultado da análise</small>
             <h4 style="margin:0;font-size:20px;letter-spacing:-0.02em;">Análise Financeira</h4>
           </div>
-          <span style="display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:${statusTone.bg};border:1px solid ${statusTone.border};color:${statusTone.text};font-size:11px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;">${escapeHtml(statusLabelMap[currentStatus] || "Em análise")}</span>
+          <span class="fc-status-badge ${escapeHtml(currentStatus)}">${escapeHtml(statusLabelMap[currentStatus] || "Em análise")}</span>
         </div>
         <div class="fc-analysis-summary-stack" style="display:grid;gap:10px;margin-bottom:14px;">
-          <div class="fc-analysis-summary-item" style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2eaf0;">
-            <small style="display:block;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Valor</small>
+          <div class="fc-analysis-summary-item" style="padding:12px;border-radius:16px;background:var(--card);border:1px solid var(--line);">
+            <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Valor</small>
             <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.valorPedido || "-")}</strong>
           </div>
-          <div class="fc-analysis-summary-item" style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2eaf0;">
-            <small style="display:block;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Pagamento</small>
+          <div class="fc-analysis-summary-item" style="padding:12px;border-radius:16px;background:var(--card);border:1px solid var(--line);">
+            <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Pagamento</small>
             <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.formaPagamento || "-")}</strong>
           </div>
-          <div class="fc-analysis-summary-item" style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2eaf0;">
-            <small style="display:block;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Prazo</small>
+          <div class="fc-analysis-summary-item" style="padding:12px;border-radius:16px;background:var(--card);border:1px solid var(--line);">
+            <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Prazo</small>
             <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.prazoEstimado || "-")}</strong>
           </div>
         </div>
@@ -3727,7 +3722,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
         <div style="margin-top:14px;">
           ${
             isFinal
-              ?`<div style="padding:14px 16px;border-radius:16px;background:#f1f5f9;border:1px solid #e2eaf0;text-align:center;font-weight:700;color:var(--text-soft);">Análise concluída. Esta ficha não pode mais ser alterada.</div>`
+              ?`<div style="padding:14px 16px;border-radius:16px;background:var(--bg-main);border:1px solid var(--line);text-align:center;font-weight:700;color:var(--text-soft);">Análise concluída. Esta ficha não pode mais ser alterada.</div>`
               : `<button id="ficha-save-analise" class="primary-btn" style="width:100%;padding:14px 18px;border-radius:16px;" ${state.fichaClienteSaving ?"disabled" : ""}>${state.fichaClienteSaving ?"Salvando..." : "Salvar análise"}</button>`
           }
         </div>
@@ -3737,7 +3732,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
     const splitWrapperClass = context === "modal-split" ? "fc-detail-wrapper-modal-split" : "fc-detail-wrapper-split";
     const splitPanelClass = context === "modal-split" ? "fc-detail-panel-modal-split" : "fc-detail-panel-table-split";
     return `
-    <article class="table-wrap fc-detail-wrapper ${splitWrapperClass}" data-detail-context="${escapeHtml(context)}" style="margin-top:16px;padding:22px;border-radius:24px;background:#ffffff;border:1px solid #d1dce8;box-shadow:0 4px 20px rgba(1,69,242,0.06);">
+    <article class="table-wrap fc-detail-wrapper ${splitWrapperClass}" data-detail-context="${escapeHtml(context)}" style="margin-top:16px;padding:22px;border-radius:24px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow-md);">
       ${headerHtml}
       <div class="fc-detail-panel fc-detail-panel-split ${splitPanelClass}">
         <div class="fc-detail-data-pane fc-detail-scroll-pane">
@@ -3756,24 +3751,24 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
   }
 
   return `
-    <article class="table-wrap fc-detail-wrapper ${detailPanelClass}" data-detail-context="${escapeHtml(context)}" style="margin-top:16px;padding:22px;border-radius:24px;background:#ffffff;border:1px solid #d1dce8;box-shadow:0 4px 20px rgba(1,69,242,0.06);">
+    <article class="table-wrap fc-detail-wrapper ${detailPanelClass}" data-detail-context="${escapeHtml(context)}" style="margin-top:16px;padding:22px;border-radius:24px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow-md);">
       <div style="display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap;">
         <div style="display:flex;flex-direction:column;gap:10px;">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <h3 style="margin:0;font-size:24px;letter-spacing:-0.02em;">Análise da Ficha #${ficha.id}</h3>
-            <span style="display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:${statusTone.bg};border:1px solid ${statusTone.border};color:${statusTone.text};font-size:12px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;">${escapeHtml(statusLabelMap[currentStatus] || "Em análise")}</span>
+            <span class="fc-status-badge ${escapeHtml(currentStatus)}">${escapeHtml(statusLabelMap[currentStatus] || "Em análise")}</span>
           </div>
           <p style="margin:0;color:var(--text-soft);font-size:15px;max-width:720px;">${escapeHtml(ficha.razaoSocial || ficha.nomeFantasia || "Sem razão social")}</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <div style="padding:10px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2eaf0;">
+            <div style="padding:10px 14px;border-radius:14px;background:var(--bg-main);border:1px solid var(--line);">
               <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Vendedor</small>
               <strong style="font-size:13px;">${escapeHtml(ficha.vendedor || "-")}</strong>
             </div>
-            <div style="padding:10px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2eaf0;">
+            <div style="padding:10px 14px;border-radius:14px;background:var(--bg-main);border:1px solid var(--line);">
               <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Data da ficha</small>
               <strong style="font-size:13px;">${escapeHtml(parseDate(ficha.data) || "-")}</strong>
             </div>
-            <div style="padding:10px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2eaf0;">
+            <div style="padding:10px 14px;border-radius:14px;background:var(--bg-main);border:1px solid var(--line);">
               <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Tipo</small>
               <strong style="font-size:13px;">${escapeHtml(ficha.tipo || "-")}</strong>
             </div>
@@ -3824,7 +3819,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
       ])}
       <div style="margin-bottom:16px;">
         <h4 style="margin:0 0 8px 0;">Parecer do Representante</h4>
-        <div style="padding:16px;border:1px solid #e2eaf0;border-radius:16px;background:#f8fafc;white-space:pre-wrap;line-height:1.6;">${escapeHtml(ficha.parecer || "-")}</div>
+        <div style="padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--bg-main);white-space:pre-wrap;line-height:1.6;">${escapeHtml(ficha.parecer || "-")}</div>
       </div>
       <div style="margin-bottom:16px;">
         <h4 style="margin:0 0 8px 0;">Anexos</h4>
@@ -3832,25 +3827,25 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
       </div>
         </div>
         <aside class="fc-detail-analysis-pane fc-detail-scroll-pane" style="${analysisPaneStyle}">
-      <div style="padding:18px;border:1px solid #d1dce8;border-radius:22px;background:#f8fafc;box-shadow:0 4px 16px rgba(1,69,242,0.07);">
+      <div style="padding:18px;border:1px solid var(--line);border-radius:22px;background:var(--bg-main);box-shadow:var(--shadow-md);">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:14px;">
           <div>
-            <small style="display:block;color:#0145F2;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">Resultado da análise</small>
+            <small style="display:block;color:var(--brand-primary-hover);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">Resultado da análise</small>
             <h4 style="margin:0;font-size:20px;letter-spacing:-0.02em;">Análise Financeira</h4>
           </div>
-          <span style="display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:${statusTone.bg};border:1px solid ${statusTone.border};color:${statusTone.text};font-size:11px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;">${escapeHtml(statusLabelMap[currentStatus] || "Em análise")}</span>
+          <span class="fc-status-badge ${escapeHtml(currentStatus)}">${escapeHtml(statusLabelMap[currentStatus] || "Em análise")}</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px;">
-          <div style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2eaf0;">
-            <small style="display:block;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Valor</small>
+          <div style="padding:12px;border-radius:16px;background:var(--card);border:1px solid var(--line);">
+            <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Valor</small>
             <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.valorPedido || "-")}</strong>
           </div>
-          <div style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2eaf0;">
-            <small style="display:block;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Pagamento</small>
+          <div style="padding:12px;border-radius:16px;background:var(--card);border:1px solid var(--line);">
+            <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Pagamento</small>
             <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.formaPagamento || "-")}</strong>
           </div>
-          <div style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2eaf0;">
-            <small style="display:block;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Prazo</small>
+          <div style="padding:12px;border-radius:16px;background:var(--card);border:1px solid var(--line);">
+            <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Prazo</small>
             <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.prazoEstimado || "-")}</strong>
           </div>
         </div>
@@ -3906,7 +3901,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
         <div style="margin-top:14px;">
           ${
             isFinal
-              ?`<div style="padding:14px 16px;border-radius:16px;background:#f1f5f9;border:1px solid #e2eaf0;text-align:center;font-weight:700;color:var(--text-soft);">Análise concluída. Esta ficha não pode mais ser alterada.</div>`
+              ?`<div style="padding:14px 16px;border-radius:16px;background:var(--bg-main);border:1px solid var(--line);text-align:center;font-weight:700;color:var(--text-soft);">Análise concluída. Esta ficha não pode mais ser alterada.</div>`
               : `<button id="ficha-save-analise" class="primary-btn" style="width:100%;padding:14px 18px;border-radius:16px;" ${state.fichaClienteSaving ?"disabled" : ""}>${state.fichaClienteSaving ?"Salvando..." : "Salvar análise"}</button>`
           }
         </div>
@@ -4478,6 +4473,101 @@ function bindEvents() {
 mountMenu();
 bindEvents();
 applySidebarState();
+
+function renderFluxoCaixa() {
+  const meses = state.fluxoCaixaMeses;
+  const rows = state.fluxoCaixa.filter((r) => r.MesesProjecao === meses);
+  const errorBlock = state.fluxoCaixaError
+    ? `<p class="fxc-error">${escapeHtml(state.fluxoCaixaError)}</p>`
+    : "";
+
+  const fmtMoney = (v) => {
+    const n = Number(v);
+    if (!n) return "";
+    return currency.format(n);
+  };
+
+  const tableRows = rows.map((r) => {
+    const saldo = Number(r.VrSld);
+    const saldoPositive = saldo >= 0;
+    const rowClass = saldoPositive ? "fxc-row-positive" : "fxc-row-negative";
+    const saldoClass = saldoPositive ? "fxc-val-positive" : "fxc-val-negative";
+    const date = r.DtVencimento ? r.DtVencimento.slice(0, 10).split("-").reverse().join("/") : "";
+    return `<tr class="${rowClass}">
+      <td class="fxc-td-date">${date}</td>
+      <td class="fxc-td-money">${fmtMoney(r.VrAPagar)}</td>
+      <td class="fxc-td-money">${fmtMoney(r.VrAReceber)}</td>
+      <td class="fxc-td-money">${fmtMoney(r.VrChq)}</td>
+      <td class="fxc-td-money fxc-td-saldo ${saldoClass}">${fmtMoney(r.VrSld)}</td>
+    </tr>`;
+  });
+
+  const projOptions = [
+    { v: 1, label: "1 mês" },
+    { v: 2, label: "2 meses" },
+    { v: 3, label: "3 meses" }
+  ]
+    .map(({ v, label }) => `<button class="fc-view-btn${meses === v ? " active" : ""}" data-meses="${v}">${label}</button>`)
+    .join("");
+
+  const skeleton = `<div class="fxc-skeleton">${Array(8).fill('<div class="fxc-skel-row"></div>').join("")}</div>`;
+
+  byId("fluxo-caixa-screen").innerHTML = `
+    <article class="table-wrap list-full-height ficha-delivery-page fxc-page">
+      <div class="fc-header ficha-delivery-header">
+        <h3 style="margin:0;">Fluxo de Caixa</h3>
+        <div class="fc-mode-switcher">${projOptions}</div>
+      </div>
+      ${errorBlock}
+      ${
+        state.fluxoCaixaLoading
+          ? skeleton
+          : rows.length === 0
+          ? `<p class="fxc-empty">Nenhum dado encontrado para esta projeção.</p>`
+          : `<div class="fxc-table-wrap">
+              <table class="fxc-table">
+                <thead>
+                  <tr>
+                    <th class="fxc-th-date">Data</th>
+                    <th class="fxc-th-money">Valor a Pagar</th>
+                    <th class="fxc-th-money">Valor a Receber</th>
+                    <th class="fxc-th-money">Valor do Cheque</th>
+                    <th class="fxc-th-money fxc-th-saldo">Saldo de Caixa</th>
+                  </tr>
+                </thead>
+                <tbody>${tableRows.join("")}</tbody>
+              </table>
+            </div>`
+      }
+    </article>
+  `;
+
+  document.querySelectorAll("#fluxo-caixa-screen .fc-view-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.fluxoCaixaMeses = Number(btn.dataset.meses);
+      renderFluxoCaixa();
+    });
+  });
+}
+
+async function loadFluxoCaixaData() {
+  state.fluxoCaixaLoading = true;
+  state.fluxoCaixaError = "";
+  renderFluxoCaixa();
+  try {
+    const data = await fetchJson("/api/fluxo-caixa");
+    state.fluxoCaixa = Array.isArray(data.data) ? data.data : [];
+    state.fluxoCaixaError = "";
+    state.fluxoCaixaLoading = false;
+    renderFluxoCaixa();
+  } catch (error) {
+    state.fluxoCaixaLoading = false;
+    state.fluxoCaixaError = error.message;
+    state.fluxoCaixa = [];
+    renderFluxoCaixa();
+    throw error;
+  }
+}
 
 async function bootstrapApp() {
   if (maybeRestoreSession() && await validateRestoredSession()) {
