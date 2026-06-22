@@ -159,6 +159,86 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function parseBrCurrencyNumber(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const text = String(value || "").trim();
+  if (!text) return 0;
+  if (text.includes(",") || text.includes("R$")) {
+    const normalized = text
+      .replace(/[R$\s]/g, "")
+      .replace(/\./g, "")
+      .replace(",", ".");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  const digits = text.replace(/\D/g, "");
+  return digits ? Number(digits) : 0;
+}
+
+function formatFichaValorPedido(value) {
+  const amount = parseBrCurrencyNumber(value);
+  return amount ? currency.format(amount) : "";
+}
+
+function getFichaValorPedidoRawDigits(value) {
+  const amount = parseBrCurrencyNumber(value);
+  return amount ? String(Math.round(amount)) : "";
+}
+
+function setupFichaValorPedidoMask() {
+  const input = byId("ficha-analise-valor-pedido");
+  if (!input || input.disabled) return;
+
+  const applyRawValue = (rawDigits) => {
+    const digits = String(rawDigits || "").replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+    input.dataset.rawValue = digits;
+    input.value = digits ? currency.format(Number(digits)) : "";
+  };
+
+  applyRawValue(getFichaValorPedidoRawDigits(input.value));
+  input.setAttribute("inputmode", "numeric");
+  input.setAttribute("autocomplete", "off");
+
+  input.addEventListener("keydown", (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (/^\d$/.test(event.key)) {
+      event.preventDefault();
+      applyRawValue(`${input.dataset.rawValue || ""}${event.key}`);
+      return;
+    }
+    if (event.key === "Backspace" || event.key === "Delete") {
+      event.preventDefault();
+      applyRawValue((input.dataset.rawValue || "").slice(0, -1));
+      return;
+    }
+    if (event.key.length === 1) {
+      event.preventDefault();
+    }
+  });
+
+  input.addEventListener("beforeinput", (event) => {
+    if (event.inputType === "insertText") {
+      event.preventDefault();
+      if (/^\d+$/.test(event.data || "")) {
+        applyRawValue(`${input.dataset.rawValue || ""}${event.data}`);
+      }
+    } else if (event.inputType === "deleteContentBackward" || event.inputType === "deleteContentForward") {
+      event.preventDefault();
+      applyRawValue((input.dataset.rawValue || "").slice(0, -1));
+    }
+  });
+
+  input.addEventListener("paste", (event) => {
+    event.preventDefault();
+    const pasted = event.clipboardData?.getData("text") || "";
+    applyRawValue(getFichaValorPedidoRawDigits(pasted));
+  });
+
+  input.addEventListener("blur", () => {
+    applyRawValue(input.dataset.rawValue || getFichaValorPedidoRawDigits(input.value));
+  });
+}
+
 function toComparable(value) {
   if (value === null || value === undefined) return "";
   if (typeof value === "number") return value;
@@ -2325,6 +2405,7 @@ function exportConciliation(format) {
 const FICHA_STATUS_LABELS = {
   pendente: "Pendente",
   em_analise: "Em análise",
+  aguardando_aprovacao_final: "Aguardando Aprovação Final",
   aprovada: "Aprovada",
   reprovada: "Reprovada",
   aprovada_com_ressalvas: "Aprovada c/ ressalvas"
@@ -2332,6 +2413,7 @@ const FICHA_STATUS_LABELS = {
 const FICHA_STATUS_STYLE = {
   pendente: "background:#f1f5f9;border:1px solid #d1dce8;color:#64748b;",
   em_analise: "background:rgba(1,69,242,0.10);border:1px solid rgba(1,69,242,0.22);color:#0145F2;",
+  aguardando_aprovacao_final: "background:#F7EBCB;border:1px solid #DDBF7A;color:#111827;",
   aprovada: "background:rgba(22,163,74,0.10);border:1px solid rgba(22,163,74,0.22);color:#16a34a;",
   reprovada: "background:rgba(220,38,38,0.10);border:1px solid rgba(220,38,38,0.22);color:#dc2626;",
   aprovada_com_ressalvas: "background:rgba(217,119,6,0.10);border:1px solid rgba(217,119,6,0.22);color:#d97706;"
@@ -2354,6 +2436,22 @@ function normalizeOptionName(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizeFormaPagamentoAlias(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function getFormaPagamentoDisplayName(value) {
+  return normalizeFormaPagamentoAlias(value) === "credito em conta" ? "Boleto" : value;
+}
+
+function getFormaPagamentoPersistedName(value) {
+  return normalizeFormaPagamentoAlias(value) === "boleto" ? "Crédito em Conta" : value;
+}
+
 function hasOptionByName(options, value) {
   const normalized = normalizeOptionName(value);
   return options.some((item) => normalizeOptionName(item.nome) === normalized);
@@ -2373,7 +2471,7 @@ function renderFormaPagamentoOptions(selectedValue) {
     ${legacyOption}
     ${FORMAS_PAGAMENTO_APROVADAS.map((item) => {
       const isSelected = normalizeOptionName(item.nome) === selectedNormalized ?"selected" : "";
-      return `<option value="${escapeHtml(item.nome)}" ${isSelected}>${item.id} - ${escapeHtml(item.nome)}</option>`;
+      return `<option value="${escapeHtml(item.nome)}" ${isSelected}>${item.id} - ${escapeHtml(getFormaPagamentoDisplayName(item.nome))}</option>`;
     }).join("")}
   `;
 }
@@ -2457,7 +2555,7 @@ function filterFormasPagamento(query) {
   const normalizedQuery = normalizePrazoSearch(query);
   const matches = FORMAS_PAGAMENTO_APROVADAS.filter((item) => {
     if (!normalizedQuery) return true;
-    const searchSpace = normalizePrazoSearch(`${item.id} ${item.nome}`);
+    const searchSpace = normalizePrazoSearch(`${item.id} ${item.nome} ${getFormaPagamentoDisplayName(item.nome)}`);
     return searchSpace.includes(normalizedQuery);
   });
   return {
@@ -2485,7 +2583,7 @@ function renderFormaPagamentoAutocompleteOptions(results, total, activeIndex = 0
           role="option"
           aria-selected="${index === activeIndex ? "true" : "false"}"
         >
-          <span class="fc-prazo-autocomplete-title">${escapeHtml(item.nome)}</span>
+          <span class="fc-prazo-autocomplete-title">${escapeHtml(getFormaPagamentoDisplayName(item.nome))}</span>
           <span class="fc-prazo-autocomplete-meta">ID ${escapeHtml(item.id)}</span>
         </button>
       `
@@ -2502,7 +2600,7 @@ function renderFormaPagamentoAutocompleteOptions(results, total, activeIndex = 0
 
 function selectFormaPagamento(input, item) {
   if (!input || !item) return;
-  input.value = item.nome;
+  input.value = getFormaPagamentoDisplayName(item.nome);
   input.dispatchEvent(new Event("input", { bubbles: true }));
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
@@ -3556,6 +3654,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
   const isFinal = ["aprovada", "reprovada", "aprovada_com_ressalvas"].includes(ficha.statusAnalise);
   const statusLabelMap = {
     em_analise: "Em análise",
+    aguardando_aprovacao_final: "Aguardando Aprovação Final",
     aprovada: "Aprovada",
     reprovada: "Reprovada",
     aprovada_com_ressalvas: "Aprovada com ressalvas"
@@ -3563,9 +3662,10 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
   const currentStatus = ficha.statusAnalise || "em_analise";
   const analysisOptions = [
     { value: "em_analise", label: "Em análise" },
+    { value: "aguardando_aprovacao_final", label: "Aguardando Aprovação Final" },
     { value: "aprovada", label: "Aprovada" },
-    { value: "reprovada", label: "Reprovada" },
-    { value: "aprovada_com_ressalvas", label: "Aprovada com ressalvas" }
+    { value: "aprovada_com_ressalvas", label: "Aprovada com ressalvas" },
+    { value: "reprovada", label: "Reprovada" }
   ];
   const context = options.context || "default";
   const isSplitContext = context === "split";
@@ -3636,7 +3736,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
       ])}
       ${buildFichaClienteDetailSection("Pagamento", [
         { label: "Valor Pedido", value: ficha.pagamento?.valorPedido || "" },
-        { label: "Forma de Pagamento", value: ficha.pagamento?.formaPagamento || "" },
+        { label: "Forma de Pagamento", value: getFormaPagamentoDisplayName(ficha.pagamento?.formaPagamento || "") },
         { label: "Prazo Estimado", value: ficha.pagamento?.prazoEstimado || "" }
       ])}
       <div style="margin-bottom:16px;">
@@ -3659,11 +3759,11 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
         <div class="fc-analysis-summary-stack" style="display:grid;gap:10px;margin-bottom:14px;">
           <div class="fc-analysis-summary-item" style="padding:12px;border-radius:16px;background:var(--card);border:1px solid var(--line);">
             <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Valor</small>
-            <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.valorPedido || "-")}</strong>
+            <strong style="font-size:13px;">${escapeHtml(formatFichaValorPedido(pagamentoAnalise.valorPedido) || "-")}</strong>
           </div>
           <div class="fc-analysis-summary-item" style="padding:12px;border-radius:16px;background:var(--card);border:1px solid var(--line);">
             <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Pagamento</small>
-            <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.formaPagamento || "-")}</strong>
+            <strong style="font-size:13px;">${escapeHtml(getFormaPagamentoDisplayName(pagamentoAnalise.formaPagamento) || "-")}</strong>
           </div>
           <div class="fc-analysis-summary-item" style="padding:12px;border-radius:16px;background:var(--card);border:1px solid var(--line);">
             <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Prazo</small>
@@ -3686,7 +3786,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
         <div class="fc-analise-inline-fields">
           <div class="fc-analise-inline-field fc-analise-inline-field-valor">
             <label for="ficha-analise-valor-pedido">Valor</label>
-            <input id="ficha-analise-valor-pedido" class="upload-input" placeholder="R$ 0,00" value="${escapeHtml(pagamentoAnalise.valorPedido || "")}" ${isFinal ?"disabled" : ""} />
+            <input id="ficha-analise-valor-pedido" class="upload-input" placeholder="R$ 0,00" value="${escapeHtml(formatFichaValorPedido(pagamentoAnalise.valorPedido))}" ${isFinal ?"disabled" : ""} />
           </div>
           <div class="fc-analise-inline-field fc-analise-inline-field-pagamento">
             <label for="ficha-analise-forma-pagamento">Pagamento</label>
@@ -3694,7 +3794,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
               id="ficha-analise-forma-pagamento"
               class="upload-input"
               placeholder="Selecione ou pesquise"
-              value="${escapeHtml(pagamentoAnalise.formaPagamento || "")}"
+              value="${escapeHtml(getFormaPagamentoDisplayName(pagamentoAnalise.formaPagamento) || "")}"
               ${isFinal ?"disabled" : ""}
             />
           </div>
@@ -3719,6 +3819,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
             <div>${escapeHtml(ficha.analisadoEm ?new Date(ficha.analisadoEm).toLocaleString("pt-BR") : "-")}</div>
           </div>
         </div>
+        ${!isFinal ?`<button id="ficha-send-final-approval" class="ghost-btn fc-send-final-approval-btn" type="button" ${state.fichaClienteSaving ?"disabled" : ""}>Enviar para Aprovação Final</button>` : ""}
         <div style="margin-top:14px;">
           ${
             isFinal
@@ -3814,7 +3915,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
       ])}
       ${buildFichaClienteDetailSection("Pagamento", [
         { label: "Valor Pedido", value: ficha.pagamento?.valorPedido || "" },
-        { label: "Forma de Pagamento", value: ficha.pagamento?.formaPagamento || "" },
+        { label: "Forma de Pagamento", value: getFormaPagamentoDisplayName(ficha.pagamento?.formaPagamento || "") },
         { label: "Prazo Estimado", value: ficha.pagamento?.prazoEstimado || "" }
       ])}
       <div style="margin-bottom:16px;">
@@ -3838,11 +3939,11 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
         <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px;">
           <div style="padding:12px;border-radius:16px;background:var(--card);border:1px solid var(--line);">
             <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Valor</small>
-            <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.valorPedido || "-")}</strong>
+            <strong style="font-size:13px;">${escapeHtml(formatFichaValorPedido(pagamentoAnalise.valorPedido) || "-")}</strong>
           </div>
           <div style="padding:12px;border-radius:16px;background:var(--card);border:1px solid var(--line);">
             <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Pagamento</small>
-            <strong style="font-size:13px;">${escapeHtml(pagamentoAnalise.formaPagamento || "-")}</strong>
+            <strong style="font-size:13px;">${escapeHtml(getFormaPagamentoDisplayName(pagamentoAnalise.formaPagamento) || "-")}</strong>
           </div>
           <div style="padding:12px;border-radius:16px;background:var(--card);border:1px solid var(--line);">
             <small style="display:block;color:var(--text-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Prazo</small>
@@ -3865,7 +3966,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
         <div class="fc-analise-inline-fields">
           <div class="fc-analise-inline-field fc-analise-inline-field-valor">
             <label for="ficha-analise-valor-pedido">Valor</label>
-            <input id="ficha-analise-valor-pedido" class="upload-input" placeholder="R$ 0,00" value="${escapeHtml(pagamentoAnalise.valorPedido || "")}" ${isFinal ?"disabled" : ""} />
+            <input id="ficha-analise-valor-pedido" class="upload-input" placeholder="R$ 0,00" value="${escapeHtml(formatFichaValorPedido(pagamentoAnalise.valorPedido))}" ${isFinal ?"disabled" : ""} />
           </div>
           <div class="fc-analise-inline-field fc-analise-inline-field-pagamento">
             <label for="ficha-analise-forma-pagamento">Pagamento</label>
@@ -3873,7 +3974,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
               id="ficha-analise-forma-pagamento"
               class="upload-input"
               placeholder="Selecione ou pesquise"
-              value="${escapeHtml(pagamentoAnalise.formaPagamento || "")}"
+              value="${escapeHtml(getFormaPagamentoDisplayName(pagamentoAnalise.formaPagamento) || "")}"
               ${isFinal ?"disabled" : ""}
             />
           </div>
@@ -3898,6 +3999,7 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
             <div>${escapeHtml(ficha.analisadoEm ?new Date(ficha.analisadoEm).toLocaleString("pt-BR") : "-")}</div>
           </div>
         </div>
+        ${!isFinal ?`<button id="ficha-send-final-approval" class="ghost-btn fc-send-final-approval-btn" type="button" ${state.fichaClienteSaving ?"disabled" : ""}>Enviar para Aprovação Final</button>` : ""}
         <div style="margin-top:14px;">
           ${
             isFinal
@@ -4036,8 +4138,19 @@ function renderFichaCliente() {
         downloadAnexo(btn.dataset.assetPath, btn.dataset.nome).catch((e) => alert(e.message));
       });
     });
+    setupFichaValorPedidoMask();
 
     const saveAnaliseButton = byId("ficha-save-analise");
+    const sendFinalApprovalButton = byId("ficha-send-final-approval");
+    if (sendFinalApprovalButton) {
+      sendFinalApprovalButton.addEventListener("click", () => {
+        const statusSelect = byId("ficha-analise-status");
+        if (!statusSelect) return;
+        statusSelect.value = "aguardando_aprovacao_final";
+        statusSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    }
+
     if (saveAnaliseButton) {
       saveAnaliseButton.addEventListener("click", () => {
         saveFichaClienteAnalise({
@@ -4045,8 +4158,8 @@ function renderFichaCliente() {
           statusAnalise: byId("ficha-analise-status").value,
           observacaoAnalise: byId("ficha-analise-observacao").value,
           pagamentoAnalise: {
-            valorPedido: byId("ficha-analise-valor-pedido").value,
-            formaPagamento: byId("ficha-analise-forma-pagamento").value,
+            valorPedido: formatFichaValorPedido(byId("ficha-analise-valor-pedido").value),
+            formaPagamento: getFormaPagamentoPersistedName(byId("ficha-analise-forma-pagamento").value),
             prazoEstimado: byId("ficha-analise-prazo-estimado").value
           }
         }).catch((error) => alert(error.message));

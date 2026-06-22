@@ -5208,6 +5208,29 @@ tbody tr:nth-child(even):hover td {
   border-color: rgba(217, 119, 6, 0.22);
 }
 
+.fc-status-badge.aguardando_aprovacao_final {
+  background: #f7ebcb;
+  color: #111827;
+  border-color: #ddbf7a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.fc-send-final-approval-btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: 14px;
+  border-color: rgba(221, 191, 122, 0.72);
+  background: rgba(247, 235, 203, 0.58);
+  color: #111827;
+  font-weight: 850;
+}
+
+.fc-send-final-approval-btn:hover {
+  border-color: #ddbf7a;
+  background: #f7ebcb;
+  color: #111827;
+}
+
 .fc-row-actions {
   display: flex;
   align-items: center;
