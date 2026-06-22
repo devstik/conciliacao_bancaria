@@ -1,5 +1,4 @@
 const state = {
-  token: null,
   tokenExpiresAt: null,
   user: null,
   receber: [],
@@ -285,14 +284,14 @@ function loadPreferences() {
 }
 
 function saveSession() {
-  if (!state.user || !state.token) {
+  if (!state.user) {
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
     return;
   }
+  // S9 — token not stored in sessionStorage; session managed via HttpOnly cookie
   sessionStorage.setItem(
     SESSION_STORAGE_KEY,
     JSON.stringify({
-      token: state.token,
       tokenExpiresAt: state.tokenExpiresAt,
       user: state.user
     })
@@ -314,7 +313,6 @@ function isSessionInvalidError(error) {
 }
 
 function resetSessionState() {
-  state.token = null;
   state.tokenExpiresAt = null;
   state.user = null;
   state.receber = [];
@@ -351,9 +349,9 @@ function maybeRestoreSession() {
     const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return false;
     const parsed = JSON.parse(raw);
-    if (!parsed?.token || !parsed?.user) return false;
+    if (!parsed?.user) return false;
     if (parsed.tokenExpiresAt && new Date(parsed.tokenExpiresAt).getTime() <= Date.now()) return false;
-    state.token = parsed.token;
+    // S9 — token lives in HttpOnly cookie only; restore user metadata from sessionStorage
     state.tokenExpiresAt = parsed.tokenExpiresAt || null;
     state.user = parsed.user;
     byId("user-name").textContent = state.user.nome || state.user.usuario || "usuario";
@@ -403,17 +401,14 @@ function toggleNotifications() {
 }
 
 async function ensureSessionFresh() {
-  if (!state.token || !state.tokenExpiresAt) return;
+  // S9 — token is in HttpOnly cookie; browser sends it automatically
+  if (!state.tokenExpiresAt) return;
   const expiresIn = new Date(state.tokenExpiresAt).getTime() - Date.now();
   if (expiresIn > 10 * 60 * 1000) return;
   try {
     const response = await fetch("/api/auth/refresh", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${state.token}`
-      },
-      body: JSON.stringify({ token: state.token })
+      headers: { "Content-Type": "application/json" }
     });
     if (response.status === 401) {
       const data = await response.json().catch(() => ({}));
@@ -423,35 +418,34 @@ async function ensureSessionFresh() {
     }
     if (!response.ok) return;
     const data = await response.json();
-    if (data.tokenPreview) {
-      state.token = data.tokenPreview;
+    if (data.expiresAt) {
       state.tokenExpiresAt = data.expiresAt;
+      if (data.user) state.user = { ...state.user, ...data.user };
       saveSession();
     }
   } catch (error) {
     if (isSessionInvalidError(error)) throw error;
-    // fallback: keep fluxo atual sem interromper usuário
   }
 }
 
 async function validateRestoredSession() {
-  if (!state.token) return false;
+  // S9 — cookie sent automatically; no token needed in request body/headers
   try {
     const response = await fetch("/api/auth/refresh", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${state.token}`
-      },
-      body: JSON.stringify({ token: state.token })
+      headers: { "Content-Type": "application/json" }
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.tokenPreview) {
+    if (!response.ok) {
       returnToLogin(data.message || "Sua sessão expirou. Faça login novamente.");
       return false;
     }
-    state.token = data.tokenPreview;
     state.tokenExpiresAt = data.expiresAt || null;
+    if (data.user) {
+      state.user = { ...state.user, ...data.user };
+      byId("user-name").textContent = state.user.nome || state.user.usuario || "usuario";
+      byId("user-avatar").textContent = (state.user.nome || state.user.usuario || "U")[0].toUpperCase();
+    }
     saveSession();
     return true;
   } catch (_error) {
@@ -830,7 +824,7 @@ async function downloadAnexo(assetPath, nome) {
   try {
     await ensureSessionFresh();
     const response = await fetch(`/api/ficha-cliente/anexo?path=${encodeURIComponent(assetPath)}`, {
-      headers: state.token ?{ Authorization: `Bearer ${state.token}` } : {}
+      credentials: "same-origin"
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -3651,7 +3645,17 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
   const anexos = ficha.arquivosAnexados || [];
   const referenciasContato = ficha.referenciasComerciais?.contato || {};
   const pagamentoAnalise = ficha.pagamentoAnalise || {};
-  const isFinal = ["aprovada", "reprovada", "aprovada_com_ressalvas"].includes(ficha.statusAnalise);
+  const currentStatus = ficha.statusAnalise || "em_analise";
+  const userRole = state.user?.role || "viewer";
+
+  // S3 — role-aware edit permissions
+  const FINAL_STATUSES = ["aprovada", "reprovada", "aprovada_com_ressalvas"];
+  const canEdit =
+    (userRole === "analista" && !FINAL_STATUSES.includes(currentStatus)) ||
+    (userRole === "aprovador_final" && !FINAL_STATUSES.includes(currentStatus)) ||
+    userRole === "admin";
+  const isFinal = !canEdit;
+
   const statusLabelMap = {
     em_analise: "Em análise",
     aguardando_aprovacao_final: "Aguardando Aprovação Final",
@@ -3659,14 +3663,31 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
     reprovada: "Reprovada",
     aprovada_com_ressalvas: "Aprovada com ressalvas"
   };
-  const currentStatus = ficha.statusAnalise || "em_analise";
-  const analysisOptions = [
-    { value: "em_analise", label: "Em análise" },
-    { value: "aguardando_aprovacao_final", label: "Aguardando Aprovação Final" },
-    { value: "aprovada", label: "Aprovada" },
-    { value: "aprovada_com_ressalvas", label: "Aprovada com ressalvas" },
-    { value: "reprovada", label: "Reprovada" }
-  ];
+
+  // S3 — each role sees only the statuses it is allowed to set
+  const analysisOptionsByRole = {
+    analista: [
+      { value: "em_analise", label: "Em análise" },
+      { value: "aguardando_aprovacao_final", label: "Encaminhar p/ aprovação final" },
+      { value: "aprovada", label: "Aprovada" },
+      { value: "reprovada", label: "Reprovada" },
+      { value: "aprovada_com_ressalvas", label: "Aprovada com ressalvas" }
+    ],
+    aprovador_final: [
+      { value: "aguardando_aprovacao_final", label: "Aguardando Aprovação Final" },
+      { value: "aprovada", label: "Aprovada" },
+      { value: "reprovada", label: "Reprovada" },
+      { value: "aprovada_com_ressalvas", label: "Aprovada com ressalvas" }
+    ],
+    admin: [
+      { value: "em_analise", label: "Em análise" },
+      { value: "aguardando_aprovacao_final", label: "Encaminhar p/ aprovação final" },
+      { value: "aprovada", label: "Aprovada" },
+      { value: "reprovada", label: "Reprovada" },
+      { value: "aprovada_com_ressalvas", label: "Aprovada com ressalvas" }
+    ]
+  };
+  const analysisOptions = analysisOptionsByRole[userRole] || [];
   const context = options.context || "default";
   const isSplitContext = context === "split";
   const detailPanelClass = isSplitContext ? "fc-detail-panel-split" : "fc-detail-panel-stack";
@@ -3822,9 +3843,13 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
         ${!isFinal ?`<button id="ficha-send-final-approval" class="ghost-btn fc-send-final-approval-btn" type="button" ${state.fichaClienteSaving ?"disabled" : ""}>Enviar para Aprovação Final</button>` : ""}
         <div style="margin-top:14px;">
           ${
-            isFinal
-              ?`<div style="padding:14px 16px;border-radius:16px;background:var(--bg-main);border:1px solid var(--line);text-align:center;font-weight:700;color:var(--text-soft);">Análise concluída. Esta ficha não pode mais ser alterada.</div>`
-              : `<button id="ficha-save-analise" class="primary-btn" style="width:100%;padding:14px 18px;border-radius:16px;" ${state.fichaClienteSaving ?"disabled" : ""}>${state.fichaClienteSaving ?"Salvando..." : "Salvar análise"}</button>`
+            !canEdit && userRole !== "viewer"
+              ? `<div style="padding:14px 16px;border-radius:16px;background:var(--bg-main);border:1px solid var(--line);text-align:center;font-weight:700;color:var(--text-soft);">Análise concluída. Esta ficha não pode mais ser alterada.</div>`
+              : userRole === "viewer"
+              ? `<div style="padding:14px 16px;border-radius:16px;background:var(--bg-main);border:1px solid var(--line);text-align:center;color:var(--text-soft);">Você tem acesso somente leitura.</div>`
+              : userRole === "aprovador_final" && currentStatus !== "aguardando_aprovacao_final"
+              ? `<div style="padding:14px 16px;border-radius:16px;background:var(--bg-main);border:1px solid var(--line);text-align:center;color:var(--text-soft);">Aguardando encaminhamento pelo analista.</div>`
+              : `<button id="ficha-save-analise" class="primary-btn" style="width:100%;padding:14px 18px;border-radius:16px;" ${state.fichaClienteSaving ? "disabled" : ""}>${state.fichaClienteSaving ? "Salvando..." : "Salvar análise"}</button>`
           }
         </div>
   `;
@@ -4002,9 +4027,13 @@ function buildFichaClienteDetailPanel(ficha, options = {}) {
         ${!isFinal ?`<button id="ficha-send-final-approval" class="ghost-btn fc-send-final-approval-btn" type="button" ${state.fichaClienteSaving ?"disabled" : ""}>Enviar para Aprovação Final</button>` : ""}
         <div style="margin-top:14px;">
           ${
-            isFinal
-              ?`<div style="padding:14px 16px;border-radius:16px;background:var(--bg-main);border:1px solid var(--line);text-align:center;font-weight:700;color:var(--text-soft);">Análise concluída. Esta ficha não pode mais ser alterada.</div>`
-              : `<button id="ficha-save-analise" class="primary-btn" style="width:100%;padding:14px 18px;border-radius:16px;" ${state.fichaClienteSaving ?"disabled" : ""}>${state.fichaClienteSaving ?"Salvando..." : "Salvar análise"}</button>`
+            !canEdit && userRole !== "viewer"
+              ? `<div style="padding:14px 16px;border-radius:16px;background:var(--bg-main);border:1px solid var(--line);text-align:center;font-weight:700;color:var(--text-soft);">Análise concluída. Esta ficha não pode mais ser alterada.</div>`
+              : userRole === "viewer"
+              ? `<div style="padding:14px 16px;border-radius:16px;background:var(--bg-main);border:1px solid var(--line);text-align:center;color:var(--text-soft);">Você tem acesso somente leitura.</div>`
+              : userRole === "aprovador_final" && currentStatus !== "aguardando_aprovacao_final"
+              ? `<div style="padding:14px 16px;border-radius:16px;background:var(--bg-main);border:1px solid var(--line);text-align:center;color:var(--text-soft);">Aguardando encaminhamento pelo analista.</div>`
+              : `<button id="ficha-save-analise" class="primary-btn" style="width:100%;padding:14px 18px;border-radius:16px;" ${state.fichaClienteSaving ? "disabled" : ""}>${state.fichaClienteSaving ? "Salvando..." : "Salvar análise"}</button>`
           }
         </div>
       </div>
@@ -4172,14 +4201,16 @@ function renderFichaCliente() {
 
 async function fetchJson(url, options = {}) {
   await ensureSessionFresh();
+  // S9 — Authorization header removed; session token lives in HttpOnly cookie
+  // sent automatically by the browser on same-origin requests
   const headers = {
     "Content-Type": "application/json",
-    ...(state.token ?{ Authorization: `Bearer ${state.token}` } : {}),
     ...(options.headers || {})
   };
   const response = await fetch(url, {
     ...options,
-    headers
+    headers,
+    credentials: "same-origin"
   });
 
   const data = await response.json();
@@ -4210,7 +4241,7 @@ async function processOfx() {
 
   const response = await fetch("/api/reconciliation/ofx", {
     method: "POST",
-    headers: state.token ?{ Authorization: `Bearer ${state.token}` } : {},
+    credentials: "same-origin",
     body: formData
   });
 
@@ -4494,7 +4525,7 @@ async function login(usuario, senha) {
     body: JSON.stringify({ usuario, senha })
   });
 
-  state.token = data.tokenPreview;
+  // S9 — token not stored in JS state; lives in HttpOnly cookie
   state.tokenExpiresAt = data.expiresAt || null;
   state.user = data.user;
   byId("user-name").textContent = data.user.nome || data.user.usuario || "usuario";

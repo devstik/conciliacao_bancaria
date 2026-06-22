@@ -3,6 +3,8 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { randomUUID, createHash } = require("crypto");
+const bcrypt = require("bcryptjs");
+const cookieParser = require("cookie-parser");
 const { parseOfxTransactions } = require("./services/ofxParser");
 const {
   insertTransactions,
@@ -45,6 +47,21 @@ const NODE_API_TOKEN = String(process.env.NODE_API_TOKEN || "").trim();
 const NODE_API_USERNAME = String(process.env.NODE_API_USERNAME || "joao").trim();
 const NODE_API_PASSWORD = String(process.env.NODE_API_PASSWORD || "871125").trim();
 const NODE_API_APP_ID = String(process.env.NODE_API_APP_ID || "StikVendas").trim();
+const BCRYPT_ROUNDS = 12;
+const COOKIE_NAME = "finsess";
+
+const ALLOWED_AUDIT_ACTIONS = new Set([
+  "ui.event", "table.export", "ui.navigation", "ui.filter",
+  "ui.download", "ui.login", "ui.logout", "ui.sort", "ui.search"
+]);
+
+const VALID_STATUS_BY_ROLE = {
+  analista: ["em_analise", "aprovada", "reprovada", "aprovada_com_ressalvas", "aguardando_aprovacao_final"],
+  aprovador_final: ["aprovada", "reprovada", "aprovada_com_ressalvas", "aguardando_aprovacao_final"],
+  admin: ["em_analise", "aprovada", "reprovada", "aprovada_com_ressalvas", "aguardando_aprovacao_final", "pendente"],
+  viewer: []
+};
+
 const sessions = new Map();
 const loginAttempts = new Map();
 const nodeApiSession = {
@@ -87,7 +104,28 @@ function loadLocalEnv() {
 }
 
 app.disable("x-powered-by");
+app.use(cookieParser());
 app.use(express.json({ limit: "2mb" }));
+
+app.use((_req, res, next) => {
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "geolocation=(), camera=(), microphone=()");
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "connect-src 'self' https://economia.awesomeapi.com.br",
+      "frame-ancestors 'none'"
+    ].join("; ")
+  );
+  next();
+});
 
 const BUILD_VERSION = Date.now();
 const HTML_PATH = path.join(__dirname, "public", "index.html");
@@ -577,13 +615,59 @@ function loadLocalUsers() {
   }
 }
 
-function hashPassword(password) {
-  return createHash("sha256").update(String(password)).digest("hex");
+function saveLocalUsers(users) {
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), "utf8");
+  } catch (_err) {
+    // non-fatal: next login will still work, hash just won't be upgraded
+  }
+}
+
+function isBcryptHash(hash) {
+  return typeof hash === "string" && hash.startsWith("$2");
+}
+
+function verifyPassword(password, storedHash) {
+  if (!storedHash) return false;
+  if (isBcryptHash(storedHash)) {
+    return bcrypt.compareSync(String(password), storedHash);
+  }
+  // Legacy SHA-256 path (auto-migrated on next successful login)
+  const sha256 = createHash("sha256").update(String(password)).digest("hex");
+  return sha256 === storedHash;
 }
 
 function findLocalUser(username, password) {
-  const h = hashPassword(password);
-  return loadLocalUsers().find((u) => u.username === username && u.passwordHash === h) || null;
+  const users = loadLocalUsers();
+  const user = users.find((u) => u.username === username);
+  if (!user || !verifyPassword(password, user.passwordHash)) return null;
+
+  // Auto-migrate legacy SHA-256 hash to bcrypt on successful login
+  if (!isBcryptHash(user.passwordHash)) {
+    const upgraded = users.map((u) =>
+      u.username === username
+        ? { ...u, passwordHash: bcrypt.hashSync(String(password), BCRYPT_ROUNDS) }
+        : u
+    );
+    saveLocalUsers(upgraded);
+  }
+
+  return user;
+}
+
+function setSessionCookie(res, token, expiresAt) {
+  const maxAgeMs = Math.max(0, new Date(expiresAt).getTime() - Date.now());
+  res.cookie(COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: maxAgeMs,
+    path: "/"
+  });
+}
+
+function clearSessionCookie(res) {
+  res.clearCookie(COOKIE_NAME, { httpOnly: true, sameSite: "strict", path: "/" });
 }
 
 function getBearerToken(req) {
@@ -595,7 +679,8 @@ function getBearerToken(req) {
 
 function getAuthenticatedSession(req) {
   cleanupSessions();
-  const token = getBearerToken(req);
+  // Cookie takes priority (HttpOnly — not readable by JS); Bearer kept for compatibility
+  const token = req.cookies?.[COOKIE_NAME] || getBearerToken(req);
   if (!token) return null;
   const session = sessions.get(token);
   if (!session) return null;
@@ -659,12 +744,14 @@ function clearLoginAttempts(key) {
   loginAttempts.delete(key);
 }
 
-function createSession(usuario) {
+function createSession(usuario, role = "viewer", nome = "") {
   const token = randomUUID();
   const now = Date.now();
   const session = {
     token,
     usuario,
+    role,
+    nome,
     createdAt: new Date(now).toISOString(),
     expiresAt: new Date(now + SESSION_TTL_MS).toISOString()
   };
@@ -676,7 +763,7 @@ function refreshSession(oldToken) {
   const current = sessions.get(oldToken);
   if (!current) return null;
   sessions.delete(oldToken);
-  return createSession(current.usuario);
+  return createSession(current.usuario, current.role || "viewer", current.nome || "");
 }
 
 function cleanupSessions() {
@@ -1017,6 +1104,20 @@ async function processConciliationFromTransactions(transactions, filesSummary) {
   };
 }
 
+function sanitizeDateParam(value) {
+  const str = String(value || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(str) ? str : "";
+}
+
+function sanitizeIntParam(value) {
+  const n = Number.parseInt(String(value || ""), 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+function sanitizeStringParam(value, maxLen = 120) {
+  return String(value || "").trim().slice(0, maxLen);
+}
+
 function normalizeCatalogItems(payload, { idKeys, labelKeys }) {
   const rows = Array.isArray(payload)
     ? payload
@@ -1219,9 +1320,10 @@ app.post("/api/auth/login", (req, res) => {
   if (envCreds && usuario === envCreds.usuario && senha === envCreds.senha) {
     clearLoginAttempts(identityKey);
     cleanupSessions();
-    const session = createSession(usuario);
+    const session = createSession(usuario, "admin", "Joao P Silva");
+    setSessionCookie(res, session.token, session.expiresAt);
     appendAuditLog({ actor: usuario, action: "auth.login.success", details: { ip: req.ip, expiresAt: session.expiresAt } });
-    return res.json({ tokenPreview: session.token, expiresAt: session.expiresAt, user: { nome: "Joao P Silva", usuario } });
+    return res.json({ expiresAt: session.expiresAt, user: { nome: "Joao P Silva", usuario, role: "admin" } });
   }
 
   // 2. Checar users.json
@@ -1229,9 +1331,12 @@ app.post("/api/auth/login", (req, res) => {
   if (localUser) {
     clearLoginAttempts(identityKey);
     cleanupSessions();
-    const session = createSession(usuario);
+    const role = localUser.role || "viewer";
+    const nome = localUser.nome || usuario;
+    const session = createSession(usuario, role, nome);
+    setSessionCookie(res, session.token, session.expiresAt);
     appendAuditLog({ actor: usuario, action: "auth.login.success", details: { ip: req.ip, expiresAt: session.expiresAt } });
-    return res.json({ tokenPreview: session.token, expiresAt: session.expiresAt, user: { nome: localUser.nome || usuario, usuario } });
+    return res.json({ expiresAt: session.expiresAt, user: { nome, usuario, role } });
   }
 
   // 3. Sem nenhuma credencial configurada
@@ -1245,17 +1350,41 @@ app.post("/api/auth/login", (req, res) => {
 });
 
 app.post("/api/auth/refresh", (req, res) => {
-  const oldToken = req.body?.token || getBearerToken(req);
-  if (!oldToken) return res.status(400).json({ message: "Token não informado." });
+  // S10 — rate limit refresh to block token-cycling abuse
+  const refreshKey = `refresh|${req.ip || "unknown"}`;
+  const lock = isLoginLocked(refreshKey);
+  if (lock.locked) {
+    return res.status(429).json({
+      message: `Muitas tentativas de renovação. Tente novamente em ${Math.ceil(lock.remainingMs / 1000)}s.`
+    });
+  }
+
+  const oldToken = req.cookies?.[COOKIE_NAME] || getBearerToken(req) || req.body?.token;
+  if (!oldToken) {
+    registerFailedLogin(refreshKey);
+    clearSessionCookie(res);
+    return res.status(400).json({ message: "Token não informado." });
+  }
+
   cleanupSessions();
   const session = refreshSession(oldToken);
-  if (!session) return res.status(401).json({ message: "Sessão inválida ou expirada." });
+  if (!session) {
+    registerFailedLogin(refreshKey);
+    clearSessionCookie(res);
+    return res.status(401).json({ message: "Sessão inválida ou expirada." });
+  }
+
+  clearLoginAttempts(refreshKey);
+  setSessionCookie(res, session.token, session.expiresAt);
   appendAuditLog({
     actor: session.usuario,
     action: "auth.refresh",
     details: { ip: req.ip, expiresAt: session.expiresAt }
   });
-  return res.json({ tokenPreview: session.token, expiresAt: session.expiresAt });
+  return res.json({
+    expiresAt: session.expiresAt,
+    user: { nome: session.nome || session.usuario, usuario: session.usuario, role: session.role || "viewer" }
+  });
 });
 
 app.get("/api/receber", requireAuth, async (req, res) => {
@@ -1322,14 +1451,16 @@ app.get("/api/ficha-cliente/anexo", requireAuth, async (req, res) => {
 
 app.get("/api/ficha-cliente", requireAuth, async (req, res) => {
   try {
+    // S8 — sanitize all query params before forwarding to NodeAPI
+    const limitRaw = sanitizeIntParam(req.query.limit);
     const data = await fetchNodeApiJson("/api/fichas-cadastro-clientes", {
       query: {
-        vendedorId: req.query.vendedorId,
-        dataInicial: req.query.dataInicial,
-        dataFinal: req.query.dataFinal,
-        tipo: req.query.tipo,
-        search: req.query.search,
-        limit: req.query.limit || 50
+        vendedorId: sanitizeIntParam(req.query.vendedorId) || undefined,
+        dataInicial: sanitizeDateParam(req.query.dataInicial) || undefined,
+        dataFinal: sanitizeDateParam(req.query.dataFinal) || undefined,
+        tipo: sanitizeStringParam(req.query.tipo, 60) || undefined,
+        search: sanitizeStringParam(req.query.search, 120) || undefined,
+        limit: limitRaw > 0 ? Math.min(limitRaw, 500) : 50
       }
     });
     return res.json({
@@ -1355,19 +1486,37 @@ app.get("/api/ficha-cliente/:id", requireAuth, async (req, res) => {
 
 app.patch("/api/ficha-cliente/:id/analise", requireAuth, async (req, res) => {
   try {
+    // S2 — enforce role-based status transitions
+    const userRole = req.session?.role || "viewer";
+    const allowedStatuses = VALID_STATUS_BY_ROLE[userRole] || [];
+    if (!allowedStatuses.length) {
+      return res.status(403).json({ message: "Sem permissão para realizar análise de fichas." });
+    }
+
+    const requestedStatus = String(req.body?.statusAnalise || "").trim();
+    if (requestedStatus && !allowedStatuses.includes(requestedStatus)) {
+      return res.status(403).json({
+        message: `Seu perfil (${userRole}) não pode definir o status "${requestedStatus}".`
+      });
+    }
+
     const actor = resolveActor(req);
+
+    // S8 — sanitize free-text fields before forwarding
+    const observacao = sanitizeStringParam(req.body?.observacaoAnalise, 2000);
+    const valorPedido = sanitizeStringParam(req.body?.pagamentoAnalise?.valorPedido, 60);
+    const formaPagamento = sanitizeStringParam(req.body?.pagamentoAnalise?.formaPagamento, 120);
+    const prazoEstimado = sanitizeStringParam(req.body?.pagamentoAnalise?.prazoEstimado, 120);
+
     const data = await fetchNodeApiJson(`/api/fichas-cadastro-clientes/${req.params.id}/analise`, {
       method: "PATCH",
       body: {
-        statusAnalise: req.body?.statusAnalise,
-        observacaoAnalise: req.body?.observacaoAnalise,
-        pagamentoAnalise: {
-          valorPedido: req.body?.pagamentoAnalise?.valorPedido,
-          formaPagamento: req.body?.pagamentoAnalise?.formaPagamento,
-          prazoEstimado: req.body?.pagamentoAnalise?.prazoEstimado
-        }
+        statusAnalise: requestedStatus || undefined,
+        observacaoAnalise: observacao || undefined,
+        pagamentoAnalise: { valorPedido, formaPagamento, prazoEstimado }
       }
     });
+
     const override = saveFichaClienteAnaliseActor(req.params.id, actor);
     const row = applyFichaClienteAnaliseActor(data.data || null);
     if (row && override) {
@@ -1726,10 +1875,24 @@ app.post("/api/reconciliation/jobs/:jobId/reprocess", requireAuth, async (req, r
 });
 
 app.post("/api/audit", requireAuth, (req, res) => {
+  // S5 — actor always from session, action restricted to allowlist, details sanitized
+  const rawAction = String(req.body?.action || "").trim();
+  const action = ALLOWED_AUDIT_ACTIONS.has(rawAction) ? rawAction : "ui.event";
+
+  const rawDetails = req.body?.details;
+  const details =
+    rawDetails && typeof rawDetails === "object" && !Array.isArray(rawDetails)
+      ? Object.fromEntries(
+          Object.entries(rawDetails)
+            .slice(0, 10)
+            .map(([k, v]) => [String(k).slice(0, 64), String(v ?? "").slice(0, 256)])
+        )
+      : {};
+
   const payload = appendAuditLog({
     actor: resolveActor(req, "frontend"),
-    action: req.body?.action || "ui.event",
-    details: req.body?.details || {}
+    action,
+    details
   });
   res.status(201).json(payload);
 });

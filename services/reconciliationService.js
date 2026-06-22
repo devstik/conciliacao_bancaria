@@ -3,6 +3,14 @@ const path = require("path");
 
 const storePath = path.join(__dirname, "..", "data", "store.json");
 
+// S7 — serialize all store writes through a promise chain so concurrent async
+// request handlers never interleave a read → modify → write sequence.
+let _writeChain = Promise.resolve();
+function withStoreWrite(fn) {
+  _writeChain = _writeChain.then(fn, fn);
+  return _writeChain;
+}
+
 function normalizeStore(raw) {
   return {
     insertedTransactions: Array.isArray(raw?.insertedTransactions) ? raw.insertedTransactions : [],
@@ -80,17 +88,18 @@ async function insertTransactions(transactions) {
     return { mode: "remote", targetUrl, count: transactions.length };
   }
 
-  const currentStore = readStore();
-  const inserted = transactions.map((item) => ({
-    ...item,
-    insertedAt: new Date().toISOString(),
-    id: `${item.fitId || "sem-fitid"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  }));
-
-  currentStore.insertedTransactions = [...inserted, ...currentStore.insertedTransactions];
-  saveStore(currentStore);
-
-  return { mode: "local", count: transactions.length };
+  // S7 — serialize the read→modify→write through the write chain
+  return withStoreWrite(() => {
+    const currentStore = readStore();
+    const inserted = transactions.map((item) => ({
+      ...item,
+      insertedAt: new Date().toISOString(),
+      id: `${item.fitId || "sem-fitid"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    }));
+    currentStore.insertedTransactions = [...inserted, ...currentStore.insertedTransactions];
+    saveStore(currentStore);
+    return { mode: "local", count: transactions.length };
+  });
 }
 
 function listInsertedTransactions() {
@@ -99,6 +108,7 @@ function listInsertedTransactions() {
 }
 
 function appendAuditLog(entry) {
+  // S7 — sync ops are serialized by Node's event loop; no lock needed here.
   const currentStore = readStore();
   const payload = {
     id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
