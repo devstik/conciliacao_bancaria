@@ -1,7 +1,32 @@
 [
-  { "username": "laura",     "passwordHash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92", "nome": "Laura",     "role": "viewer" },
-  { "username": "priscila",  "passwordHash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92", "nome": "Priscila",  "role": "viewer" },
-  { "username": "adna",      "passwordHash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92", "nome": "Adna",      "role": "viewer" },
-  { "username": "joycianne", "passwordHash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92", "nome": "Joycianne", "role": "analista" },
-  { "username": "shirlanne", "passwordHash": "cfb789f892fdf2a45ab1bc1f046932df431a7708165393e0f13fab2c9267c0eb", "nome": "Shirlanne", "role": "aprovador_final" }
+  {
+    "username": "laura",
+    "passwordHash": "$2b$12$sW5uh34inRea/hpvspYOee4ZCsMbkm5Kn.BK.bkR7LjE6lbQz/i8K",
+    "nome": "Laura",
+    "role": "viewer"
+  },
+  {
+    "username": "priscila",
+    "passwordHash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+    "nome": "Priscila",
+    "role": "viewer"
+  },
+  {
+    "username": "adna",
+    "passwordHash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+    "nome": "Adna",
+    "role": "viewer"
+  },
+  {
+    "username": "joycianne",
+    "passwordHash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+    "nome": "Joycianne",
+    "role": "analista"
+  },
+  {
+    "username": "shirlanne",
+    "passwordHash": "cfb789f892fdf2a45ab1bc1f046932df431a7708165393e0f13fab2c9267c0eb",
+    "nome": "Shirlanne",
+    "role": "aprovador_final"
+  }
 ]

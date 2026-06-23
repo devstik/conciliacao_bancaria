@@ -844,6 +844,52 @@ async function downloadAnexo(assetPath, nome) {
   }
 }
 
+async function copyTextToClipboard(value) {
+  const text = String(value || "");
+  if (!text) return;
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
+function setEmailCopyFeedback(button) {
+  if (!button) return;
+  window.clearTimeout(button._copyFeedbackTimer);
+  const label = button.querySelector(".fc-email-copy-icon");
+  button.classList.add("copied");
+  if (label) label.innerHTML = renderEmailCopyIcon("done");
+  button._copyFeedbackTimer = window.setTimeout(() => {
+    button.classList.remove("copied");
+    if (label) label.innerHTML = renderEmailCopyIcon("copy");
+  }, 1400);
+}
+
+function renderEmailCopyIcon(type = "copy") {
+  if (type === "done") {
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
+    `;
+  }
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="8" y="8" width="11" height="11" rx="2" />
+      <rect x="5" y="5" width="11" height="11" rx="2" />
+    </svg>
+  `;
+}
+
 function renderFichaAttachmentDownloadButtonContent() {
   return `
     <span class="fc-attachment-download-icon" aria-hidden="true">
@@ -3599,6 +3645,7 @@ function buildFichaClienteTable(rows) {
 }
 
 function buildFichaClienteDetailSection(title, items) {
+  const isEmailSection = title === "E-mails";
   return `
     <section class="fc-detail-section" style="margin-bottom:18px;">
       <div class="fc-detail-section-header" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
@@ -3609,10 +3656,20 @@ function buildFichaClienteDetailSection(title, items) {
         ${items
           .map((item) => {
             const fieldValue = item.value || "-";
+            const canCopyEmail = isEmailSection && fieldValue !== "-";
             return `
               <div class="fc-detail-field" style="padding:14px 14px 13px;border:1px solid var(--line);border-radius:16px;background:var(--bg-main);box-shadow:var(--shadow-sm);">
                 <small style="display:block;color:var(--text-soft);margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">${escapeHtml(item.label)}</small>
-                <div class="fc-detail-field-value" title="${escapeHtml(fieldValue)}" style="font-size:14px;font-weight:700;color:var(--text-strong);line-height:1.45;">${escapeHtml(fieldValue)}</div>
+                <div class="fc-detail-field-copy-row">
+                  <div class="fc-detail-field-value" title="${escapeHtml(fieldValue)}" style="font-size:14px;font-weight:700;color:var(--text-strong);line-height:1.45;">${escapeHtml(fieldValue)}</div>
+                  ${
+                    canCopyEmail
+                      ?`<button class="fc-email-copy-btn" type="button" data-email="${escapeHtml(fieldValue)}" aria-label="Copiar e-mail ${escapeHtml(item.label)}" title="Copiar e-mail">
+                          <span class="fc-email-copy-icon" aria-hidden="true">${renderEmailCopyIcon("copy")}</span>
+                        </button>`
+                      : ""
+                  }
+                </div>
               </div>
             `;
           })
@@ -4165,6 +4222,13 @@ function renderFichaCliente() {
       btn.addEventListener("click", () => {
         setFichaAttachmentDownloadState(btn);
         downloadAnexo(btn.dataset.assetPath, btn.dataset.nome).catch((e) => alert(e.message));
+      });
+    });
+    document.querySelectorAll(".fc-email-copy-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        copyTextToClipboard(btn.dataset.email)
+          .then(() => setEmailCopyFeedback(btn))
+          .catch((error) => alert(error.message || "Não foi possível copiar o e-mail."));
       });
     });
     setupFichaValorPedidoMask();
