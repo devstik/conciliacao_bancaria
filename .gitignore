@@ -5,3 +5,6 @@ node_modules/
 data/store.json
 ofx/*.ofx
 /Extrato*.ofx
+
+# Planilhas reais de preço/campanha (nunca versionar)
+docs/amostras/

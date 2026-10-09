@@ -139,6 +139,13 @@ const menuItems = [
     icon:
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v4H4V4zm0 6h16v10H4V10zm4 3v2h8v-2H8z"/></svg>'
   },
+  {
+    id: "comissao-tabelas-preco",
+    label: "Tabelas de Preço",
+    requires: "comissao",
+    icon:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4V4zm2 2v3h12V6H6zm0 5v3h5v-3H6zm7 0v3h5v-3h-5zm-7 5v2h5v-2H6zm7 0v2h5v-2h-5z"/></svg>'
+  },
 ];
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
